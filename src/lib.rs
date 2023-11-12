@@ -5,8 +5,8 @@ use self::chunks::{content_info::ContentsInfoChunk, optional_data::OptionalDataC
 type SmafResult<T> = anyhow::Result<T>;
 
 pub enum SmafChunk<'a> {
-    ContentsInfo(ContentsInfoChunk<'a>), //CNTI
-    OptionalData(OptionalDataChunk<'a>), //OPDA
+    ContentsInfo(ContentsInfoChunk<'a>), // CNTI
+    OptionalData(OptionalDataChunk<'a>), // OPDA
     ScoreTrack(u8, &'a [u8]),            // MTRx
 }
 
