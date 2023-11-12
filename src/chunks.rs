@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 pub mod content_info;
 pub mod optional_data;
 

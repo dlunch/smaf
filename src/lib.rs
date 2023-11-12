@@ -1,3 +1,8 @@
+#![no_std]
+extern crate alloc;
+
+use alloc::vec::Vec;
+
 mod chunks;
 
 use self::chunks::{content_info::ContentsInfoChunk, optional_data::OptionalDataChunk};
