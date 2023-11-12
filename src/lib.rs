@@ -1,18 +1,22 @@
+mod chunks;
+
+use self::chunks::{content_info::ContentsInfoChunk, optional_data::OptionalDataChunk};
+
 type SmafResult<T> = anyhow::Result<T>;
 
-pub struct SmafRawChunk<'a> {
-    pub id: [u8; 4],
-    pub size: u32,
-    pub data: &'a [u8],
+pub enum SmafChunk<'a> {
+    ContentsInfo(ContentsInfoChunk<'a>), //CNTI
+    OptionalData(OptionalDataChunk<'a>), //OPDA
+    ScoreTrack(u8, &'a [u8]),            // MTRx
 }
 
 pub struct Smaf<'a> {
-    pub chunks: Vec<SmafRawChunk<'a>>,
+    pub chunks: Vec<SmafChunk<'a>>,
 }
 
 impl<'a> Smaf<'a> {
     pub fn new(file: &'a [u8]) -> SmafResult<Self> {
-        let file_chunk = parse_chunks(file)?;
+        let file_chunk = chunks::parse_raw_chunks(file)?;
         anyhow::ensure!(file_chunk.len() == 1, "Invalid file chunk count");
 
         let file_chunk = &file_chunk[0];
@@ -22,25 +26,20 @@ impl<'a> Smaf<'a> {
         let crc_base = file_chunk.data.len() - 2;
         let _crc = u16::from_be_bytes([file[crc_base], file[crc_base + 1]]);
 
-        let chunks = parse_chunks(&file_chunk.data[..crc_base])?;
+        let raw_chunks = chunks::parse_raw_chunks(&file_chunk.data[..crc_base])?;
+
+        let chunks = raw_chunks
+            .into_iter()
+            .map(|x| {
+                Ok(match x.id {
+                    [b'C', b'N', b'T', b'I'] => SmafChunk::ContentsInfo(ContentsInfoChunk::new(x.data)?),
+                    [b'O', b'P', b'D', b'A'] => SmafChunk::OptionalData(OptionalDataChunk::new(x.data)?),
+                    [b'M', b'T', b'R', _] => SmafChunk::ScoreTrack(x.id[3], x.data),
+                    _ => anyhow::bail!("Invalid chunk id"),
+                })
+            })
+            .collect::<SmafResult<Vec<_>>>()?;
 
         Ok(Self { chunks })
     }
-}
-
-fn parse_chunks(data: &[u8]) -> SmafResult<Vec<SmafRawChunk<'_>>> {
-    let mut chunks = Vec::new();
-    let mut cursor = 0;
-    while cursor < data.len() {
-        let chunk_id = [data[cursor], data[cursor + 1], data[cursor + 2], data[cursor + 3]];
-        let chunk_size = u32::from_be_bytes([data[cursor + 4], data[cursor + 5], data[cursor + 6], data[cursor + 7]]) as usize;
-        let chunk_data = &data[cursor + 8..cursor + 8 + chunk_size];
-        chunks.push(SmafRawChunk {
-            id: chunk_id,
-            size: chunk_size as u32,
-            data: chunk_data,
-        });
-        cursor += 8 + chunk_size;
-    }
-    Ok(chunks)
 }
