@@ -8,6 +8,7 @@ pub enum SmafChunk<'a> {
     ContentsInfo(ContentsInfoChunk<'a>), // CNTI
     OptionalData(OptionalDataChunk<'a>), // OPDA
     ScoreTrack(u8, &'a [u8]),            // MTRx
+    PCMAudioTrack(u8, &'a [u8]),         // ATRx
 }
 
 pub struct Smaf<'a> {
@@ -35,6 +36,7 @@ impl<'a> Smaf<'a> {
                     [b'C', b'N', b'T', b'I'] => SmafChunk::ContentsInfo(ContentsInfoChunk::new(x.data)?),
                     [b'O', b'P', b'D', b'A'] => SmafChunk::OptionalData(OptionalDataChunk::new(x.data)?),
                     [b'M', b'T', b'R', _] => SmafChunk::ScoreTrack(x.id[3], x.data),
+                    [b'A', b'T', b'R', _] => SmafChunk::PCMAudioTrack(x.id[3], x.data),
                     _ => anyhow::bail!("Invalid chunk id"),
                 })
             })
