@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use nom::{
     bytes::complete::take,
-    combinator::{complete, flat_map, map_res, rest},
+    combinator::{all_consuming, complete, flat_map, map_res, rest},
     multi::many0,
     number::complete::be_u32,
     sequence::tuple,
@@ -31,7 +31,7 @@ impl<'a> Parse<&'a [u8]> for PcmDataChunk<'a> {
     fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
-                &[b'M', b'w', b'a', x] => Self::WaveData(x, WaveData::parse(data)?.1),
+                &[b'M', b'w', b'a', x] => Self::WaveData(x, all_consuming(WaveData::parse)(data)?.1),
                 _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
             })
         })(data)
@@ -51,7 +51,7 @@ impl<'a> Parse<&'a [u8]> for ScoreTrackChunk<'a> {
             Ok::<_, nom::Err<_>>(match tag {
                 b"Mtsu" => ScoreTrackChunk::SetupData(data),
                 b"Mtsq" => ScoreTrackChunk::SequenceData(data),
-                b"Mtsp" => ScoreTrackChunk::PcmData(many0(complete(PcmDataChunk::parse))(data)?.1),
+                b"Mtsp" => ScoreTrackChunk::PcmData(all_consuming(many0(complete(PcmDataChunk::parse)))(data)?.1),
                 _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
             })
         })(data)
@@ -67,6 +67,8 @@ pub enum FormatType {
 }
 
 #[derive(NomBE)]
+#[nom(Complete)]
+#[nom(Exact)]
 pub struct ScoreTrack<'a> {
     pub format_type: FormatType,
     pub sequence_type: u8,

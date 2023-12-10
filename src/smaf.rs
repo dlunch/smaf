@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use nom::{
     bytes::complete::take,
-    combinator::{complete, flat_map, map_res},
+    combinator::{all_consuming, complete, flat_map, map_res},
     multi::many0,
     number::complete::be_u32,
     sequence::tuple,
@@ -26,9 +26,9 @@ impl<'a> Parse<&'a [u8]> for SmafChunk<'a> {
     fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
-                b"CNTI" => Self::ContentsInfo(ContentsInfoChunk::parse(data)?.1),
-                b"OPDA" => Self::OptionalData(OptionalDataChunk::parse(data)?.1),
-                &[b'M', b'T', b'R', x] => Self::ScoreTrack(x, ScoreTrack::parse(data)?.1),
+                b"CNTI" => Self::ContentsInfo(all_consuming(ContentsInfoChunk::parse)(data)?.1),
+                b"OPDA" => Self::OptionalData(all_consuming(OptionalDataChunk::parse)(data)?.1),
+                &[b'M', b'T', b'R', x] => Self::ScoreTrack(x, all_consuming(ScoreTrack::parse)(data)?.1),
                 &[b'A', b'T', b'R', x] => Self::PCMAudioTrack(x, data),
                 _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
             })
