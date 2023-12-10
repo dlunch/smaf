@@ -1,11 +1,12 @@
-use crate::SmafResult;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
+use nom_derive::NomBE;
+
+#[derive(NomBE)]
+#[nom(Complete)]
+#[nom(Exact)]
 pub struct ContentsInfoChunk<'a> {
-    _raw: &'a [u8], // TODO
-}
-
-impl<'a> ContentsInfoChunk<'a> {
-    pub fn new(raw: &'a [u8]) -> SmafResult<Self> {
-        Ok(Self { _raw: raw })
-    }
+    pub raw: Vec<u8>,
+    phantom: PhantomData<&'a u8>,
 }

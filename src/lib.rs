@@ -1,9 +1,19 @@
 #![no_std]
 extern crate alloc;
 
+mod chunks;
+
 use alloc::vec::Vec;
 
-mod chunks;
+use nom::{
+    bytes::complete::take,
+    combinator::{complete, flat_map, map},
+    multi::many0,
+    number::complete::be_u32,
+    sequence::tuple,
+    IResult,
+};
+use nom_derive::{NomBE, Parse};
 
 use self::chunks::{content_info::ContentsInfoChunk, optional_data::OptionalDataChunk};
 
@@ -16,37 +26,32 @@ pub enum SmafChunk<'a> {
     PCMAudioTrack(u8, &'a [u8]),         // ATRx
 }
 
+impl<'a> SmafChunk<'a> {
+    fn parse_be(data: &'a [u8]) -> IResult<&[u8], SmafChunk<'a>> {
+        map(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| match tag {
+            b"CNTI" => return SmafChunk::ContentsInfo(ContentsInfoChunk::parse_be(data).unwrap().1),
+            b"OPDA" => return SmafChunk::OptionalData(OptionalDataChunk::parse_be(data).unwrap().1),
+            &[b'M', b'T', b'R', x] => return SmafChunk::ScoreTrack(x, data),
+            &[b'A', b'T', b'R', x] => return SmafChunk::PCMAudioTrack(x, data),
+            _ => panic!("Unknown chunk"),
+        })(data)
+    }
+}
+
+#[derive(NomBE)]
+#[nom(Complete)]
+#[nom(Exact)]
 pub struct Smaf<'a> {
+    #[nom(Tag(b"MMMD"))]
+    pub magic: &'a [u8],
+    pub length: u32,
+    #[nom(Parse = "many0(complete(SmafChunk::parse_be))")]
     pub chunks: Vec<SmafChunk<'a>>,
+    pub crc: u16,
 }
 
 impl<'a> Smaf<'a> {
-    pub fn new(file: &'a [u8]) -> SmafResult<Self> {
-        let file_chunk = chunks::parse_raw_chunks(file)?;
-        anyhow::ensure!(file_chunk.len() == 1, "Invalid file chunk count");
-
-        let file_chunk = &file_chunk[0];
-        anyhow::ensure!(file_chunk.id == [b'M', b'M', b'M', b'D'], "Invalid file chunk id");
-        anyhow::ensure!(file_chunk.size + 8 == file.len() as u32, "Invalid file size");
-
-        let crc_base = file_chunk.data.len() - 2;
-        let _crc = u16::from_be_bytes([file[crc_base], file[crc_base + 1]]);
-
-        let raw_chunks = chunks::parse_raw_chunks(&file_chunk.data[..crc_base])?;
-
-        let chunks = raw_chunks
-            .into_iter()
-            .map(|x| {
-                Ok(match x.id {
-                    [b'C', b'N', b'T', b'I'] => SmafChunk::ContentsInfo(ContentsInfoChunk::new(x.data)?),
-                    [b'O', b'P', b'D', b'A'] => SmafChunk::OptionalData(OptionalDataChunk::new(x.data)?),
-                    [b'M', b'T', b'R', _] => SmafChunk::ScoreTrack(x.id[3], x.data),
-                    [b'A', b'T', b'R', _] => SmafChunk::PCMAudioTrack(x.id[3], x.data),
-                    _ => anyhow::bail!("Invalid chunk id"),
-                })
-            })
-            .collect::<SmafResult<Vec<_>>>()?;
-
-        Ok(Self { chunks })
+    pub fn parse(file: &'a [u8]) -> SmafResult<Self> {
+        Ok(Self::parse_be(file).unwrap().1)
     }
 }
