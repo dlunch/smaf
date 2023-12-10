@@ -54,6 +54,6 @@ pub struct Smaf<'a> {
 
 impl<'a> Smaf<'a> {
     pub fn parse(file: &'a [u8]) -> SmafResult<Self> {
-        Ok(Self::parse_be(file).unwrap().1)
+        Ok(Parse::parse(file).map_err(|e| anyhow::anyhow!("{}", e))?.1)
     }
 }
