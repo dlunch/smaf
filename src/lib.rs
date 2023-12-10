@@ -15,7 +15,7 @@ use nom::{
 };
 use nom_derive::{NomBE, Parse};
 
-use self::chunks::{content_info::ContentsInfoChunk, optional_data::OptionalDataChunk};
+use self::chunks::{ContentsInfoChunk, OptionalDataChunk};
 
 type SmafResult<T> = anyhow::Result<T>;
 
