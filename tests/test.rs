@@ -18,7 +18,7 @@ fn test_bell_load() -> anyhow::Result<()> {
 
         if let ScoreTrackChunk::PcmData(x) = &x.chunks[2] {
             assert_eq!(x.len(), 1);
-            assert!(matches!(x[0], smaf::PcmDataChunk::WaveData(_, _)));
+            assert!(matches!(x[0], smaf::PcmDataChunk::WaveData(1, _)));
         } else {
             panic!("Expected PcmData chunk");
         }
