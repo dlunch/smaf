@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 
 use nom::{
     bytes::complete::take,
-    combinator::{complete, flat_map, map},
+    combinator::{complete, flat_map, map_res},
     multi::many0,
     number::complete::be_u32,
     sequence::tuple,
@@ -28,12 +28,14 @@ pub enum SmafChunk<'a> {
 
 impl<'a> SmafChunk<'a> {
     fn parse_be(data: &'a [u8]) -> IResult<&[u8], SmafChunk<'a>> {
-        map(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| match tag {
-            b"CNTI" => return SmafChunk::ContentsInfo(ContentsInfoChunk::parse_be(data).unwrap().1),
-            b"OPDA" => return SmafChunk::OptionalData(OptionalDataChunk::parse_be(data).unwrap().1),
-            &[b'M', b'T', b'R', x] => return SmafChunk::ScoreTrack(x, data),
-            &[b'A', b'T', b'R', x] => return SmafChunk::PCMAudioTrack(x, data),
-            _ => panic!("Unknown chunk"),
+        map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
+            Ok::<_, nom::Err<_>>(match tag {
+                b"CNTI" => SmafChunk::ContentsInfo(ContentsInfoChunk::parse_be(data)?.1),
+                b"OPDA" => SmafChunk::OptionalData(OptionalDataChunk::parse_be(data)?.1),
+                &[b'M', b'T', b'R', x] => SmafChunk::ScoreTrack(x, data),
+                &[b'A', b'T', b'R', x] => SmafChunk::PCMAudioTrack(x, data),
+                _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
+            })
         })(data)
     }
 }
