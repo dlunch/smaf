@@ -15,25 +15,25 @@ use nom::{
 };
 use nom_derive::{NomBE, Parse};
 
-use self::chunks::{ContentsInfoChunk, OptionalDataChunk};
+pub use self::chunks::{ContentsInfoChunk, OptionalDataChunk, PcmDataChunk, ScoreTrack, ScoreTrackChunk};
 
 type SmafResult<T> = anyhow::Result<T>;
 
 pub enum SmafChunk<'a> {
     ContentsInfo(ContentsInfoChunk<'a>), // CNTI
     OptionalData(OptionalDataChunk<'a>), // OPDA
-    ScoreTrack(u8, &'a [u8]),            // MTRx
+    ScoreTrack(u8, ScoreTrack<'a>),      // MTRx
     PCMAudioTrack(u8, &'a [u8]),         // ATRx
 }
 
-impl<'a> SmafChunk<'a> {
-    fn parse_be(data: &'a [u8]) -> IResult<&[u8], SmafChunk<'a>> {
+impl<'a> Parse<&'a [u8]> for SmafChunk<'a> {
+    fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
-                b"CNTI" => SmafChunk::ContentsInfo(ContentsInfoChunk::parse_be(data)?.1),
-                b"OPDA" => SmafChunk::OptionalData(OptionalDataChunk::parse_be(data)?.1),
-                &[b'M', b'T', b'R', x] => SmafChunk::ScoreTrack(x, data),
-                &[b'A', b'T', b'R', x] => SmafChunk::PCMAudioTrack(x, data),
+                b"CNTI" => Self::ContentsInfo(ContentsInfoChunk::parse(data)?.1),
+                b"OPDA" => Self::OptionalData(OptionalDataChunk::parse(data)?.1),
+                &[b'M', b'T', b'R', x] => Self::ScoreTrack(x, ScoreTrack::parse(data)?.1),
+                &[b'A', b'T', b'R', x] => Self::PCMAudioTrack(x, data),
                 _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
             })
         })(data)
@@ -47,7 +47,7 @@ pub struct Smaf<'a> {
     #[nom(Tag(b"MMMD"))]
     pub magic: &'a [u8],
     pub length: u32,
-    #[nom(Parse = "many0(complete(SmafChunk::parse_be))")]
+    #[nom(Parse = "many0(complete(SmafChunk::parse))")]
     pub chunks: Vec<SmafChunk<'a>>,
     pub crc: u16,
 }
