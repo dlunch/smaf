@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use nom::{
     bytes::complete::take,
-    combinator::{complete, flat_map, map_res},
+    combinator::{complete, flat_map, map_res, rest},
     multi::many0,
     number::complete::be_u32,
     sequence::tuple,
@@ -10,15 +10,28 @@ use nom::{
 };
 use nom_derive::{NomBE, Parse};
 
+pub struct WaveData<'a> {
+    pub wave_type: &'a [u8], // TODO, 3 bytes
+    pub wave_data: &'a [u8],
+}
+
+impl<'a> Parse<&'a [u8]> for WaveData<'a> {
+    fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
+        map_res(tuple((take(3usize), rest)), |(wave_type, wave_data): (&[u8], &[u8])| {
+            Ok::<_, nom::Err<nom::error::Error<&'a [u8]>>>(Self { wave_type, wave_data })
+        })(data)
+    }
+}
+
 pub enum PcmDataChunk<'a> {
-    WaveData(u8, &'a [u8]),
+    WaveData(u8, WaveData<'a>),
 }
 
 impl<'a> Parse<&'a [u8]> for PcmDataChunk<'a> {
     fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
-            Ok::<_, nom::Err<nom::error::Error<&'a [u8]>>>(match tag {
-                &[b'M', b'w', b'a', x] => Self::WaveData(x, data),
+            Ok::<_, nom::Err<_>>(match tag {
+                &[b'M', b'w', b'a', x] => Self::WaveData(x, WaveData::parse(data)?.1),
                 _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
             })
         })(data)
