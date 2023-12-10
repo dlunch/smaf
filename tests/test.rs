@@ -1,4 +1,4 @@
-use smaf::{ScoreTrackChunk, Smaf, SmafChunk};
+use smaf::{BaseBit, Channel, Format, PcmDataChunk, ScoreTrackChunk, Smaf, SmafChunk};
 
 #[test]
 fn test_bell_load() -> anyhow::Result<()> {
@@ -18,11 +18,15 @@ fn test_bell_load() -> anyhow::Result<()> {
 
         if let ScoreTrackChunk::PcmData(x) = &x.chunks[2] {
             assert_eq!(x.len(), 1);
-            assert!(matches!(x[0], smaf::PcmDataChunk::WaveData(1, _)));
+            assert!(matches!(x[0], PcmDataChunk::WaveData(1, _)));
 
             let smaf::PcmDataChunk::WaveData(_, x) = &x[0];
 
-            assert_eq!(x.wave_type, [0x20, 0x56, 0x22]);
+            assert_eq!(x.channel, Channel::Mono);
+            assert_eq!(x.format, Format::YamahaADPCM);
+            assert_eq!(x.base_bit, BaseBit::Bit4);
+            assert_eq!(x.sampling_freq, 22050);
+
             assert_eq!(x.wave_data.len(), 367616);
         } else {
             panic!("Expected PcmData chunk");

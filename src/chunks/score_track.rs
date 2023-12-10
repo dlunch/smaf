@@ -4,21 +4,97 @@ use nom::{
     bytes::complete::take,
     combinator::{all_consuming, complete, flat_map, map_res, rest},
     multi::many0,
-    number::complete::be_u32,
+    number::complete::{be_u16, be_u32, u8},
     sequence::tuple,
     IResult,
 };
 use nom_derive::{NomBE, Parse};
 
+#[repr(u8)]
+#[derive(Eq, PartialEq, Copy, Clone)]
+#[cfg(debug_assertions)]
+#[derive(Debug)]
+pub enum Channel {
+    Mono = 0,
+    Stereo = 1,
+}
+
+impl From<u8> for Channel {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::Mono,
+            1 => Self::Stereo,
+            _ => panic!("Invalid channel value"),
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Copy, Clone)]
+#[cfg(debug_assertions)]
+#[derive(Debug)]
+pub enum Format {
+    TwosComplementPCM = 0,
+    OffsetBinaryPCM = 1,
+    YamahaADPCM = 2,
+}
+
+impl From<u8> for Format {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::TwosComplementPCM,
+            1 => Self::OffsetBinaryPCM,
+            2 => Self::YamahaADPCM,
+            _ => panic!("Invalid format value"),
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Copy, Clone)]
+#[cfg(debug_assertions)]
+#[derive(Debug)]
+pub enum BaseBit {
+    Bit4 = 0,
+    Bit8 = 1,
+    Bit12 = 2,
+    Bit16 = 3,
+}
+
+impl From<u8> for BaseBit {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::Bit4,
+            1 => Self::Bit8,
+            2 => Self::Bit12,
+            3 => Self::Bit16,
+            _ => panic!("Invalid base bit value"),
+        }
+    }
+}
+
 pub struct WaveData<'a> {
-    pub wave_type: &'a [u8], // TODO, 3 bytes
+    pub channel: Channel,
+    pub format: Format,
+    pub base_bit: BaseBit,
+    pub sampling_freq: u16,
     pub wave_data: &'a [u8],
 }
 
 impl<'a> Parse<&'a [u8]> for WaveData<'a> {
     fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
-        map_res(tuple((take(3usize), rest)), |(wave_type, wave_data): (&[u8], &[u8])| {
-            Ok::<_, nom::Err<nom::error::Error<&'a [u8]>>>(Self { wave_type, wave_data })
+        map_res(tuple((u8, be_u16, rest)), |(wave_type, sampling_freq, wave_data)| {
+            let channel = Channel::from((wave_type & 0b10000000) >> 7);
+            let format = Format::from((wave_type & 0b01110000) >> 4);
+            let base_bit = BaseBit::from(wave_type & 0b00001111);
+
+            Ok::<_, nom::Err<nom::error::Error<&'a [u8]>>>(Self {
+                channel,
+                format,
+                base_bit,
+                sampling_freq,
+                wave_data,
+            })
         })(data)
     }
 }
