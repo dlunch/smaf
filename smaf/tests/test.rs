@@ -2,7 +2,7 @@ use smaf::{BaseBit, Channel, Format, PcmDataChunk, ScoreTrackChunk, Smaf, SmafCh
 
 #[test]
 fn test_bell_load() -> anyhow::Result<()> {
-    let data = include_bytes!("./test_data/bell.mmf");
+    let data = include_bytes!("../../test_data/bell.mmf");
     let file = Smaf::parse(data)?;
 
     assert_eq!(file.chunks.len(), 3);
@@ -40,7 +40,7 @@ fn test_bell_load() -> anyhow::Result<()> {
 
 #[test]
 fn test_wave_load() -> anyhow::Result<()> {
-    let data = include_bytes!("./test_data/wave.mmf");
+    let data = include_bytes!("../../test_data/wave.mmf");
     let file = Smaf::parse(data)?;
 
     assert_eq!(file.chunks.len(), 2);
@@ -52,7 +52,7 @@ fn test_wave_load() -> anyhow::Result<()> {
 
 #[test]
 fn test_midi_load() -> anyhow::Result<()> {
-    let data = include_bytes!("./test_data/midi.mmf");
+    let data = include_bytes!("../../test_data/midi.mmf");
     let file = Smaf::parse(data)?;
 
     assert_eq!(file.chunks.len(), 3);
