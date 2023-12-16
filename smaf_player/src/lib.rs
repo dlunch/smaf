@@ -1,13 +1,16 @@
 #![no_std]
 extern crate alloc;
 
-use smaf::{PcmDataChunk, ScoreTrack, ScoreTrackChunk, Smaf, SmafChunk};
+mod adpcm;
+
+use smaf::{Channel, PcmDataChunk, ScoreTrack, ScoreTrackChunk, Smaf, SmafChunk};
+
+use self::adpcm::decode_adpcm;
 
 pub trait AudioBackend {
-    fn play_wave(&self, channel: u8, sampling_rate: u32, wave_data: &[u8]);
+    fn play_wave(&self, channel: u8, sampling_rate: u32, wave_data: &[i16]);
 }
 
-#[allow(dead_code)]
 struct ScoreTrackPlayer<'a> {
     score_track: &'a ScoreTrack<'a>,
     backend: &'a dyn AudioBackend,
@@ -23,8 +26,14 @@ impl<'a> ScoreTrackPlayer<'a> {
             if let ScoreTrackChunk::PcmData(x) = chunk {
                 for chunk in x.iter() {
                     match chunk {
-                        PcmDataChunk::WaveData(_, _) => {
-                            todo!()
+                        PcmDataChunk::WaveData(_, x) => {
+                            let decoded = decode_adpcm(x.wave_data);
+                            let channel = match x.channel {
+                                Channel::Mono => 1,
+                                Channel::Stereo => 2,
+                            };
+
+                            self.backend.play_wave(channel, x.sampling_freq as _, &decoded)
                         }
                     }
                 }

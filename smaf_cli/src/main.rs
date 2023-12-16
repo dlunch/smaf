@@ -6,7 +6,7 @@ use smaf_player::{play_smaf, AudioBackend};
 struct AudioBackendImpl;
 
 impl AudioBackend for AudioBackendImpl {
-    fn play_wave(&self, _channel: u8, _sampling_rate: u32, _wave_data: &[u8]) {
+    fn play_wave(&self, _channel: u8, _sampling_rate: u32, _wave_data: &[i16]) {
         todo!()
     }
 }
