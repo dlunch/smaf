@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rodio = { version = "^0.17", default-features = false }
+
 smaf = { path = "../smaf" }
 smaf_player = { path = "../smaf_player" }
