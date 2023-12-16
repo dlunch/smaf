@@ -36,6 +36,10 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.rust }}-build-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-${{ matrix.rust }}-build-target-
 
+      - name: Install required packages
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt update && sudo apt install libasound2-dev
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
