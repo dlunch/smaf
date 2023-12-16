@@ -16,5 +16,5 @@ pub fn main() {
     let data = fs::read(file).expect("Failed to read file");
 
     let smaf = Smaf::parse(&data).expect("Failed to parse file");
-    play_smaf(&smaf);
+    play_smaf(&smaf, &AudioBackendImpl);
 }
