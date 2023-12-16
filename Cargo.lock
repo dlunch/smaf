@@ -86,6 +86,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "smaf_cli"
+version = "0.1.0"
+dependencies = [
+ "smaf",
+ "smaf_player",
+]
+
+[[package]]
+name = "smaf_player"
+version = "0.1.0"
+dependencies = [
+ "smaf",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"

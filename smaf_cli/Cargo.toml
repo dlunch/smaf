@@ -1,0 +1,8 @@
+[package]
+name = "smaf_cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+smaf = { path = "../smaf" }
+smaf_player = { path = "../smaf_player" }
