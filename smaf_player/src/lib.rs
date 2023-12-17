@@ -27,6 +27,9 @@ impl<'a> ScoreTrackPlayer<'a> {
                 for chunk in x.iter() {
                     match chunk {
                         PcmDataChunk::WaveData(_, x) => {
+                            assert!(x.base_bit == smaf::BaseBit::Bit4); // current decoder is 4bit only
+                            assert!(x.channel == Channel::Mono); // current decoder is mono only
+
                             let decoded = decode_adpcm(x.wave_data);
                             let channel = match x.channel {
                                 Channel::Mono => 1,
