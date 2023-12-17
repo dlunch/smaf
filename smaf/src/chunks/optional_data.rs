@@ -2,6 +2,7 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use nom_derive::NomBE;
+
 #[derive(NomBE)]
 #[nom(Complete)]
 #[nom(Exact)]
