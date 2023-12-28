@@ -11,9 +11,7 @@ use nom::{
 use nom_derive::{NomBE, Parse};
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Copy, Clone)]
-#[cfg(debug_assertions)]
-#[derive(Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum Channel {
     Mono = 0,
     Stereo = 1,
@@ -30,9 +28,7 @@ impl From<u8> for Channel {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Copy, Clone)]
-#[cfg(debug_assertions)]
-#[derive(Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum Format {
     TwosComplementPCM = 0,
     OffsetBinaryPCM = 1,
@@ -51,9 +47,7 @@ impl From<u8> for Format {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Copy, Clone)]
-#[cfg(debug_assertions)]
-#[derive(Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum BaseBit {
     Bit4 = 0,
     Bit8 = 1,
