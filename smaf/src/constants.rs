@@ -36,6 +36,27 @@ impl From<u8> for StreamWaveFormat {
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub enum PcmWaveFormat {
+    TwosComplementPCM = 0,
+    Adpcm = 1,
+    TwinVQ = 2,
+    MP3 = 3,
+}
+
+impl From<u8> for PcmWaveFormat {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::TwosComplementPCM,
+            1 => Self::Adpcm,
+            2 => Self::TwinVQ,
+            3 => Self::MP3,
+            _ => panic!("Invalid format value"),
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum BaseBit {
     Bit4 = 0,
     Bit8 = 1,

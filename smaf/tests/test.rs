@@ -1,4 +1,4 @@
-use smaf::{BaseBit, Channel, PcmDataChunk, ScoreTrackChunk, Smaf, SmafChunk, StreamWaveFormat};
+use smaf::{BaseBit, Channel, PcmDataChunk, PcmWaveFormat, ScoreTrackChunk, Smaf, SmafChunk, StreamWaveFormat};
 
 #[test]
 fn test_bell_load() -> anyhow::Result<()> {
@@ -50,9 +50,12 @@ fn test_wave_load() -> anyhow::Result<()> {
     if let SmafChunk::PCMAudioTrack(_, x) = &file.chunks[1] {
         assert_eq!(x.format_type, 0);
         assert_eq!(x.sequence_type, 0);
-        assert_eq!(x.wave_type, 4352);
-        assert_eq!(x.timebase_d, 2);
-        assert_eq!(x.timebase_g, 2);
+        assert_eq!(x.channel, Channel::Mono);
+        assert_eq!(x.format, PcmWaveFormat::Adpcm);
+        assert_eq!(x.sampling_freq, 8000);
+        assert_eq!(x.base_bit, BaseBit::Bit4);
+        assert_eq!(x.timebase_d, 4);
+        assert_eq!(x.timebase_g, 4);
 
         assert_eq!(x.chunks.len(), 12874);
     } else {
