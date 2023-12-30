@@ -9,6 +9,6 @@ type SmafResult<T> = anyhow::Result<T>;
 
 pub use self::{
     chunks::{PcmDataChunk, ScoreTrack, ScoreTrackChunk},
-    constants::{BaseBit, Channel, Format},
+    constants::{BaseBit, Channel, StreamWaveFormat},
     smaf::{Smaf, SmafChunk},
 };

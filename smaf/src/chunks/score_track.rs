@@ -10,11 +10,11 @@ use nom::{
 };
 use nom_derive::{NomBE, Parse};
 
-use crate::constants::{BaseBit, Channel, Format};
+use crate::constants::{BaseBit, Channel, StreamWaveFormat};
 
 pub struct WaveData<'a> {
     pub channel: Channel,
-    pub format: Format,
+    pub format: StreamWaveFormat,
     pub base_bit: BaseBit,
     pub sampling_freq: u16,
     pub wave_data: &'a [u8],
@@ -24,7 +24,7 @@ impl<'a> Parse<&'a [u8]> for WaveData<'a> {
     fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
         map_res(tuple((u8, be_u16, rest)), |(wave_type, sampling_freq, wave_data)| {
             let channel = Channel::from((wave_type & 0b10000000) >> 7);
-            let format = Format::from((wave_type & 0b01110000) >> 4);
+            let format = StreamWaveFormat::from((wave_type & 0b01110000) >> 4);
             let base_bit = BaseBit::from(wave_type & 0b00001111);
 
             Ok::<_, nom::Err<nom::error::Error<&'a [u8]>>>(Self {

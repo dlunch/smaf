@@ -1,4 +1,4 @@
-use smaf::{BaseBit, Channel, Format, PcmDataChunk, ScoreTrackChunk, Smaf, SmafChunk};
+use smaf::{BaseBit, Channel, PcmDataChunk, ScoreTrackChunk, Smaf, SmafChunk, StreamWaveFormat};
 
 #[test]
 fn test_bell_load() -> anyhow::Result<()> {
@@ -23,7 +23,7 @@ fn test_bell_load() -> anyhow::Result<()> {
             let smaf::PcmDataChunk::WaveData(_, x) = &x[0];
 
             assert_eq!(x.channel, Channel::Mono);
-            assert_eq!(x.format, Format::YamahaADPCM);
+            assert_eq!(x.format, StreamWaveFormat::YamahaADPCM);
             assert_eq!(x.base_bit, BaseBit::Bit4);
             assert_eq!(x.sampling_freq, 22050);
 

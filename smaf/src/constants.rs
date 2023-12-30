@@ -17,13 +17,13 @@ impl From<u8> for Channel {
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
-pub enum Format {
+pub enum StreamWaveFormat {
     TwosComplementPCM = 0,
     OffsetBinaryPCM = 1,
     YamahaADPCM = 2,
 }
 
-impl From<u8> for Format {
+impl From<u8> for StreamWaveFormat {
     fn from(value: u8) -> Self {
         match value {
             0 => Self::TwosComplementPCM,
