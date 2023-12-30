@@ -10,7 +10,7 @@ use nom::{
 };
 use nom_derive::{NomBE, Parse};
 
-use crate::constants::{BaseBit, Channel, StreamWaveFormat};
+use crate::constants::{BaseBit, Channel, FormatType, StreamWaveFormat};
 
 pub struct WaveData<'a> {
     pub channel: Channel,
@@ -71,14 +71,6 @@ impl<'a> Parse<&'a [u8]> for ScoreTrackChunk<'a> {
             })
         })(data)
     }
-}
-
-#[repr(u8)]
-#[derive(NomBE, Copy, Clone)]
-pub enum FormatType {
-    HandyPhoneStandard = 0,
-    MobileStandardCompress = 1,
-    MobileStandardNoCompress = 2,
 }
 
 #[derive(NomBE)]

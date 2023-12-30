@@ -1,4 +1,4 @@
-use smaf::{BaseBit, Channel, PcmDataChunk, PcmWaveFormat, ScoreTrackChunk, Smaf, SmafChunk, StreamWaveFormat};
+use smaf::{BaseBit, Channel, FormatType, PcmDataChunk, PcmWaveFormat, ScoreTrackChunk, Smaf, SmafChunk, StreamWaveFormat};
 
 #[test]
 fn test_bell_load() -> anyhow::Result<()> {
@@ -11,6 +11,8 @@ fn test_bell_load() -> anyhow::Result<()> {
     assert!(matches!(file.chunks[2], SmafChunk::ScoreTrack(6, _)));
 
     if let SmafChunk::ScoreTrack(_, x) = &file.chunks[2] {
+        assert_eq!(x.format_type, FormatType::MobileStandardNoCompress);
+
         assert_eq!(x.chunks.len(), 3);
         assert!(matches!(x.chunks[0], ScoreTrackChunk::SetupData(_)));
         assert!(matches!(x.chunks[1], ScoreTrackChunk::SequenceData(_)));
@@ -76,6 +78,8 @@ fn test_midi_load() -> anyhow::Result<()> {
     assert!(matches!(file.chunks[2], SmafChunk::ScoreTrack(5, _)));
 
     if let SmafChunk::ScoreTrack(_, x) = &file.chunks[2] {
+        assert_eq!(x.format_type, FormatType::MobileStandardNoCompress);
+
         assert_eq!(x.chunks.len(), 2);
         assert!(matches!(x.chunks[0], ScoreTrackChunk::SetupData(_)));
         assert!(matches!(x.chunks[1], ScoreTrackChunk::SequenceData(_)));
