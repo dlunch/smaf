@@ -2,11 +2,13 @@
 extern crate alloc;
 
 mod chunks;
+mod constants;
 mod smaf;
 
 type SmafResult<T> = anyhow::Result<T>;
 
 pub use self::{
-    chunks::{BaseBit, Channel, Format, PcmDataChunk, ScoreTrack, ScoreTrackChunk},
+    chunks::{PcmDataChunk, ScoreTrack, ScoreTrackChunk},
+    constants::{BaseBit, Channel, Format},
     smaf::{Smaf, SmafChunk},
 };
