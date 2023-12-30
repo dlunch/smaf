@@ -75,5 +75,13 @@ fn test_midi_load() -> anyhow::Result<()> {
     assert!(matches!(file.chunks[1], SmafChunk::OptionalData(_)));
     assert!(matches!(file.chunks[2], SmafChunk::ScoreTrack(5, _)));
 
+    if let SmafChunk::ScoreTrack(_, x) = &file.chunks[2] {
+        assert_eq!(x.chunks.len(), 2);
+        assert!(matches!(x.chunks[0], ScoreTrackChunk::SetupData(_)));
+        assert!(matches!(x.chunks[1], ScoreTrackChunk::SequenceData(_)));
+    } else {
+        panic!("Expected ScoreTrack chunk");
+    }
+
     Ok(())
 }
