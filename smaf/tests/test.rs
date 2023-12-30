@@ -47,6 +47,18 @@ fn test_wave_load() -> anyhow::Result<()> {
     assert!(matches!(file.chunks[0], SmafChunk::ContentsInfo(_)));
     assert!(matches!(file.chunks[1], SmafChunk::PCMAudioTrack(0, _)));
 
+    if let SmafChunk::PCMAudioTrack(_, x) = &file.chunks[1] {
+        assert_eq!(x.format_type, 0);
+        assert_eq!(x.sequence_type, 0);
+        assert_eq!(x.wave_type, 4352);
+        assert_eq!(x.timebase_d, 2);
+        assert_eq!(x.timebase_g, 2);
+
+        assert_eq!(x.chunks.len(), 12874);
+    } else {
+        panic!("Expected PCMAudioTrack chunk");
+    }
+
     Ok(())
 }
 
