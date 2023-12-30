@@ -53,10 +53,140 @@ impl<'a> Parse<&'a [u8]> for PcmDataChunk<'a> {
     }
 }
 
+pub enum SequenceEvent {
+    NoteMessage { channel: u8, note: u8, velocity: u8, gate_time: u32 },
+    ControlChange { channel: u8, control: u8, value: u8 },
+    ProgramChange { channel: u8, program: u8 },
+    PitchBend { channel: u8, value_lsb: u8, value_msb: u8 },
+    Exclusive(Vec<u8>),
+    Nop,
+}
+
+pub struct MobileStandardSequenceData {
+    pub duration: u32,
+    pub event: SequenceEvent,
+}
+
+impl MobileStandardSequenceData {
+    pub fn parse(input: &[u8]) -> IResult<&[u8], Vec<Self>> {
+        let mut data = input;
+        let mut result = Vec::new();
+        loop {
+            let (remaining, duration) = Self::parse_variable_number(data)?;
+            let (remaining, status_byte) = u8(remaining)?;
+
+            let event = match status_byte {
+                0x80..=0x8F => {
+                    // NoteMessage without velocity
+                    let channel = status_byte & 0b0000_1111;
+                    let (remaining, note) = u8(remaining)?;
+                    let (remaining, gate_time) = Self::parse_variable_number(remaining)?;
+                    data = remaining;
+
+                    SequenceEvent::NoteMessage {
+                        channel,
+                        note,
+                        velocity: 64,
+                        gate_time,
+                    }
+                }
+                0x90..=0x9F => {
+                    // NoteMessage with velocity
+                    let channel = status_byte & 0b0000_1111;
+                    let (remaining, note) = u8(remaining)?;
+                    let (remaining, velocity) = u8(remaining)?;
+                    let (remaining, gate_time) = Self::parse_variable_number(remaining)?;
+                    data = remaining;
+
+                    SequenceEvent::NoteMessage {
+                        channel,
+                        note,
+                        velocity,
+                        gate_time,
+                    }
+                }
+                0xB0..=0xBF => {
+                    // ControlChange
+                    let channel = status_byte & 0b0000_1111;
+                    let (remaining, control) = u8(remaining)?;
+                    let (remaining, value) = u8(remaining)?;
+                    data = remaining;
+
+                    SequenceEvent::ControlChange { channel, control, value }
+                }
+                0xC0..=0xCF => {
+                    // ProgramChange
+                    let channel = status_byte & 0b0000_1111;
+                    let (remaining, program) = u8(remaining)?;
+                    data = remaining;
+
+                    SequenceEvent::ProgramChange { channel, program }
+                }
+                0xE0..=0xEF => {
+                    // PitchBend
+                    let channel = status_byte & 0b0000_1111;
+                    let (remaining, value_lsb) = u8(remaining)?;
+                    let (remaining, value_msb) = u8(remaining)?;
+                    data = remaining;
+
+                    SequenceEvent::PitchBend {
+                        channel,
+                        value_lsb,
+                        value_msb,
+                    }
+                }
+                0xF0 => {
+                    // exclusive
+                    let (remaining, length) = Self::parse_variable_number(remaining)?;
+                    let (remaining, exclusive_data) = take(length)(remaining)?;
+                    data = remaining;
+
+                    SequenceEvent::Exclusive(exclusive_data.to_vec())
+                }
+                0xFF => {
+                    // EndOfStream or nop
+                    let (remaining, second_byte) = u8(remaining)?;
+                    data = remaining;
+
+                    if second_byte == 0x2F {
+                        let (remaining, _) = u8(data)?;
+                        data = remaining;
+                        break;
+                    } else if second_byte == 0x00 {
+                        SequenceEvent::Nop
+                    } else {
+                        panic!("Invalid status byte");
+                    }
+                }
+                _ => panic!("Invalid status byte"),
+            };
+
+            result.push(Self { duration, event })
+        }
+
+        Ok((data, result))
+    }
+
+    fn parse_variable_number(input: &[u8]) -> IResult<&[u8], u32> {
+        let mut data = input;
+        let mut result = 0;
+        loop {
+            let (remaining, byte) = u8(data)?;
+            data = remaining;
+            result = (result << 7) | (byte & 0b0111_1111) as u32;
+            if byte & 0b1000_0000 == 0 {
+                break;
+            }
+        }
+
+        Ok((data, result))
+    }
+}
+
 #[allow(clippy::enum_variant_names)]
 pub enum ScoreTrackChunk<'a> {
     SetupData(&'a [u8]),
-    SequenceData(&'a [u8]),
+    SequenceData(Vec<MobileStandardSequenceData>),
     PcmData(Vec<PcmDataChunk<'a>>),
 }
 
@@ -65,7 +195,7 @@ impl<'a> Parse<&'a [u8]> for ScoreTrackChunk<'a> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
                 b"Mtsu" => ScoreTrackChunk::SetupData(data),
-                b"Mtsq" => ScoreTrackChunk::SequenceData(data),
+                b"Mtsq" => ScoreTrackChunk::SequenceData(all_consuming(MobileStandardSequenceData::parse)(data)?.1),
                 b"Mtsp" => ScoreTrackChunk::PcmData(all_consuming(many0(complete(PcmDataChunk::parse)))(data)?.1),
                 _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
             })
@@ -89,7 +219,7 @@ pub struct ScoreTrack<'a> {
 
 fn parse_channel_status(format_type: FormatType, data: &[u8]) -> IResult<&[u8], &[u8]> {
     match format_type {
-        FormatType::MobileStandardCompress | FormatType::MobileStandardNoCompress => take(16usize)(data),
+        FormatType::MobileStandardNoCompress => take(16usize)(data),
         _ => panic!("Unsupported format type"),
     }
 }
