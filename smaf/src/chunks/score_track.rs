@@ -16,7 +16,7 @@ pub struct WaveData<'a> {
     pub channel: Channel,
     pub format: StreamWaveFormat,
     pub base_bit: BaseBit,
-    pub sampling_freq: u16,
+    pub sampling_freq: u16, // in hz
     pub wave_data: &'a [u8],
 }
 

@@ -9,14 +9,14 @@ use nom_derive::Parse;
 use crate::constants::{BaseBit, Channel, PcmWaveFormat};
 
 pub struct PCMAudioTrackChunk<'a> {
-    pub format_type: u8,
-    pub sequence_type: u8,
+    pub format_type: u8,   // should be 0
+    pub sequence_type: u8, // 0: stream sequence, 1: sub-sequence
     pub channel: Channel,
     pub format: PcmWaveFormat,
-    pub sampling_freq: u16,
+    pub sampling_freq: u16, // in hz
     pub base_bit: BaseBit,
-    pub timebase_d: u8,
-    pub timebase_g: u8,
+    pub timebase_d: u8, // in ms
+    pub timebase_g: u8, // in ms
 
     pub chunks: &'a [u8],
 }
