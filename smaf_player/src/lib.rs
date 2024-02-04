@@ -1,14 +1,21 @@
 #![no_std]
 extern crate alloc;
 
+use alloc::boxed::Box;
+
 mod adpcm;
 
 use smaf::{Channel, PcmDataChunk, ScoreTrack, ScoreTrackChunk, Smaf, SmafChunk};
 
 use self::adpcm::decode_adpcm;
 
+#[async_trait::async_trait]
 pub trait AudioBackend {
     fn play_wave(&self, channel: u8, sampling_rate: u32, wave_data: &[i16]);
+    fn midi_note_on(&self, channel_id: u8, note: u8, velocity: u8);
+    fn midi_note_off(&self, channel_id: u8, note: u8);
+    fn midi_set_instrument(&self, channel_id: u8, instrument: u8);
+    async fn sleep(&self);
 }
 
 struct ScoreTrackPlayer<'a> {
