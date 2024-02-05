@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use nom::{
     bytes::complete::take,
-    combinator::{all_consuming, complete, flat_map, map_res, rest},
+    combinator::{all_consuming, complete, flat_map, map, map_res, rest},
     multi::many0,
     number::complete::{be_u16, be_u32, u8},
     sequence::tuple,
@@ -203,6 +203,39 @@ impl<'a> Parse<&'a [u8]> for ScoreTrackChunk<'a> {
     }
 }
 
+pub enum ChannelType {
+    NoCare = 0,
+    Melody = 1,
+    NoMelody = 2,
+    Rhythm = 3,
+}
+
+pub struct ChannelStatus {
+    pub kcs: u8, // key control status
+    pub vs: u8,  // vibration status
+    pub led: u8,
+    pub channel_type: ChannelType,
+}
+
+impl ChannelStatus {
+    pub fn parse(raw: u8) -> Self {
+        let kcs = raw & 0b1100_0000 >> 6;
+        let vs = raw & 0b0010_0000 >> 5;
+        let led = raw & 0b0001_0000 >> 4;
+        let channel_type = raw & 0b0000_0011;
+
+        let channel_type = match channel_type {
+            0 => ChannelType::NoCare,
+            1 => ChannelType::Melody,
+            2 => ChannelType::NoMelody,
+            3 => ChannelType::Rhythm,
+            _ => panic!("Invalid channel type"),
+        };
+
+        Self { kcs, vs, led, channel_type }
+    }
+}
+
 #[derive(NomBE)]
 #[nom(Complete)]
 #[nom(Exact)]
@@ -212,14 +245,14 @@ pub struct ScoreTrack<'a> {
     pub timebase_d: u8,
     pub timebase_g: u8,
     #[nom(Parse = "{ |x| parse_channel_status(format_type, x) }")]
-    pub channel_status: &'a [u8],
+    pub channel_status: Vec<ChannelStatus>,
     #[nom(Parse = "many0(complete(ScoreTrackChunk::parse))")]
     pub chunks: Vec<ScoreTrackChunk<'a>>,
 }
 
-fn parse_channel_status(format_type: FormatType, data: &[u8]) -> IResult<&[u8], &[u8]> {
+fn parse_channel_status(format_type: FormatType, data: &[u8]) -> IResult<&[u8], Vec<ChannelStatus>> {
     match format_type {
-        FormatType::MobileStandardNoCompress => take(16usize)(data),
+        FormatType::MobileStandardNoCompress => map(take(16usize), |x: &[u8]| x.iter().map(|&x| ChannelStatus::parse(x)).collect())(data),
         _ => panic!("Unsupported format type"),
     }
 }
