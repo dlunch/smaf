@@ -34,7 +34,10 @@ impl<'a> ScoreTrackPlayer<'a> {
         let sequence_data = self.sequence_data();
 
         for event in sequence_data {
-            let mut remaining_duration = event.duration;
+            self.backend
+                .sleep(Duration::from_millis((event.duration * (self.score_track.timebase_d as u32)) as _))
+                .await;
+
             match event.event {
                 SequenceEvent::NoteMessage {
                     channel,
@@ -65,8 +68,6 @@ impl<'a> ScoreTrackPlayer<'a> {
                     if note != 0 {
                         self.backend.midi_note_off(channel, note);
                     }
-
-                    remaining_duration -= gate_time * (self.score_track.timebase_g as u32);
                 }
                 SequenceEvent::ControlChange {
                     channel: _,
@@ -79,10 +80,6 @@ impl<'a> ScoreTrackPlayer<'a> {
                 SequenceEvent::Exclusive(_) => {}
                 _ => unimplemented!(),
             }
-
-            self.backend
-                .sleep(Duration::from_millis((remaining_duration * (self.score_track.timebase_d as u32)) as _))
-                .await;
         }
     }
 

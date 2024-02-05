@@ -26,11 +26,17 @@ impl AudioBackend for AudioBackendImpl {
         self.sink.append(buffer);
     }
 
-    fn midi_note_on(&self, _channel_id: u8, _note: u8, _velocity: u8) {}
+    fn midi_note_on(&self, channel_id: u8, note: u8, velocity: u8) {
+        println!("[{}] Note on: {} ({})", channel_id, note, velocity);
+    }
 
-    fn midi_note_off(&self, _channel_id: u8, _note: u8) {}
+    fn midi_note_off(&self, channel_id: u8, note: u8) {
+        println!("[{}] Note off: {}", channel_id, note);
+    }
 
-    fn midi_program_change(&self, _channel_id: u8, _program: u8) {}
+    fn midi_program_change(&self, channel_id: u8, program: u8) {
+        println!("[{}] Program change: {}", channel_id, program);
+    }
 
     async fn sleep(&self, duration: Duration) {
         sleep(duration).await
