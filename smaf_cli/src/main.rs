@@ -30,7 +30,7 @@ impl AudioBackend for AudioBackendImpl {
 
     fn midi_note_off(&self, _channel_id: u8, _note: u8) {}
 
-    fn midi_set_instrument(&self, _channel_id: u8, _instrument: u8) {}
+    fn midi_program_change(&self, _channel_id: u8, _program: u8) {}
 
     async fn sleep(&self, duration: Duration) {
         sleep(duration).await

@@ -16,7 +16,7 @@ pub trait AudioBackend {
     fn play_wave(&self, channel: u8, sampling_rate: u32, wave_data: &[i16]);
     fn midi_note_on(&self, channel_id: u8, note: u8, velocity: u8);
     fn midi_note_off(&self, channel_id: u8, note: u8);
-    fn midi_set_instrument(&self, channel_id: u8, instrument: u8);
+    fn midi_program_change(&self, channel_id: u8, program: u8);
     async fn sleep(&self, duration: Duration);
 }
 
@@ -39,7 +39,7 @@ impl<'a> ScoreTrackPlayer<'a> {
                 SequenceEvent::NoteMessage {
                     channel,
                     note,
-                    velocity: _,
+                    velocity,
                     gate_time,
                 } => {
                     // play wave on note 0??
@@ -54,11 +54,17 @@ impl<'a> ScoreTrackPlayer<'a> {
                             Channel::Stereo => 2,
                         };
                         self.backend.play_wave(channel, pcm.sampling_freq as _, &decoded);
+                    } else {
+                        self.backend.midi_note_on(channel, note, velocity);
                     }
 
                     self.backend
                         .sleep(Duration::from_millis((gate_time * (self.score_track.timebase_g as u32)) as _))
                         .await;
+
+                    if note != 0 {
+                        self.backend.midi_note_off(channel, note);
+                    }
 
                     remaining_duration -= gate_time * (self.score_track.timebase_g as u32);
                 }
@@ -67,7 +73,9 @@ impl<'a> ScoreTrackPlayer<'a> {
                     control: _,
                     value: _,
                 } => {}
-                SequenceEvent::ProgramChange { channel: _, program: _ } => {}
+                SequenceEvent::ProgramChange { channel, program } => {
+                    self.backend.midi_program_change(channel, program);
+                }
                 SequenceEvent::Exclusive(_) => {}
                 _ => unimplemented!(),
             }

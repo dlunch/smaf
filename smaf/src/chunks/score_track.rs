@@ -219,9 +219,9 @@ pub struct ChannelStatus {
 
 impl ChannelStatus {
     pub fn parse(raw: u8) -> Self {
-        let kcs = raw & 0b1100_0000 >> 6;
-        let vs = raw & 0b0010_0000 >> 5;
-        let led = raw & 0b0001_0000 >> 4;
+        let kcs = (raw & 0b1100_0000) >> 6;
+        let vs = (raw & 0b0010_0000) >> 5;
+        let led = (raw & 0b0001_0000) >> 4;
         let channel_type = raw & 0b0000_0011;
 
         let channel_type = match channel_type {
