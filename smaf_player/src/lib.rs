@@ -2,9 +2,11 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+use core::time::Duration;
 
 mod adpcm;
 
+use futures::future::join_all;
 use smaf::{Channel, PcmDataChunk, ScoreTrack, ScoreTrackChunk, Smaf, SmafChunk};
 
 use self::adpcm::decode_adpcm;
@@ -15,7 +17,7 @@ pub trait AudioBackend {
     fn midi_note_on(&self, channel_id: u8, note: u8, velocity: u8);
     fn midi_note_off(&self, channel_id: u8, note: u8);
     fn midi_set_instrument(&self, channel_id: u8, instrument: u8);
-    async fn sleep(&self);
+    async fn sleep(&self, duration: Duration);
 }
 
 struct ScoreTrackPlayer<'a> {
@@ -28,7 +30,7 @@ impl<'a> ScoreTrackPlayer<'a> {
         Self { score_track, backend }
     }
 
-    pub fn play(&self) {
+    pub async fn play(&self) {
         for chunk in self.score_track.chunks.iter() {
             if let ScoreTrackChunk::PcmData(x) = chunk {
                 for chunk in x.iter() {
@@ -43,7 +45,10 @@ impl<'a> ScoreTrackPlayer<'a> {
                                 Channel::Stereo => 2,
                             };
 
-                            self.backend.play_wave(channel, x.sampling_freq as _, &decoded)
+                            self.backend.play_wave(channel, x.sampling_freq as _, &decoded);
+
+                            let duration = Duration::from_secs_f32(decoded.len() as f32 / x.sampling_freq as f32);
+                            self.backend.sleep(duration).await;
                         }
                     }
                 }
@@ -52,11 +57,11 @@ impl<'a> ScoreTrackPlayer<'a> {
     }
 }
 
-pub fn play_smaf(smaf: &Smaf, backend: &dyn AudioBackend) {
+pub async fn play_smaf(smaf: &Smaf<'_>, backend: &dyn AudioBackend) {
     let players = smaf.chunks.iter().filter_map(|x| match x {
         SmafChunk::ScoreTrack(_, x) => Some(ScoreTrackPlayer::new(x, backend)),
         _ => None,
     });
 
-    players.for_each(|x| x.play())
+    join_all(players.map(|x| async move { x.play().await })).await;
 }
