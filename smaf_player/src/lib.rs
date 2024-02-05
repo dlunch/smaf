@@ -7,7 +7,7 @@ use core::time::Duration;
 mod adpcm;
 
 use futures::future::join_all;
-use smaf::{Channel, PcmDataChunk, ScoreTrack, ScoreTrackChunk, Smaf, SmafChunk};
+use smaf::{Channel, MobileStandardSequenceData, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, Smaf, SmafChunk, WaveData};
 
 use self::adpcm::decode_adpcm;
 
@@ -31,29 +31,67 @@ impl<'a> ScoreTrackPlayer<'a> {
     }
 
     pub async fn play(&self) {
+        let sequence_data = self.sequence_data();
+
+        for event in sequence_data {
+            match event.event {
+                SequenceEvent::NoteMessage {
+                    channel,
+                    note,
+                    velocity: _,
+                    gate_time,
+                } => {
+                    // play wave on note 0??
+                    if note == 0 {
+                        let pcm = self.pcm_data(channel + 1);
+                        assert!(pcm.base_bit == smaf::BaseBit::Bit4); // current decoder is 4bit only
+                        assert!(pcm.channel == Channel::Mono); // current decoder is mono only
+
+                        let decoded = decode_adpcm(pcm.wave_data);
+                        let channel = match pcm.channel {
+                            Channel::Mono => 1,
+                            Channel::Stereo => 2,
+                        };
+                        self.backend.play_wave(channel, pcm.sampling_freq as _, &decoded);
+                    }
+
+                    self.backend
+                        .sleep(Duration::from_millis((gate_time * (self.score_track.timebase_g as u32)) as _))
+                        .await;
+                }
+                SequenceEvent::ControlChange {
+                    channel: _,
+                    control: _,
+                    value: _,
+                } => {}
+                SequenceEvent::ProgramChange { channel: _, program: _ } => {}
+                SequenceEvent::Exclusive(_) => {}
+                _ => unimplemented!(),
+            }
+        }
+    }
+
+    fn sequence_data(&self) -> &[MobileStandardSequenceData] {
+        for chunk in self.score_track.chunks.iter() {
+            if let ScoreTrackChunk::SequenceData(x) = chunk {
+                return x;
+            }
+        }
+        panic!("No sequence data found")
+    }
+
+    fn pcm_data(&self, channel: u8) -> &WaveData {
         for chunk in self.score_track.chunks.iter() {
             if let ScoreTrackChunk::PcmData(x) = chunk {
-                for chunk in x.iter() {
-                    match chunk {
-                        PcmDataChunk::WaveData(_, x) => {
-                            assert!(x.base_bit == smaf::BaseBit::Bit4); // current decoder is 4bit only
-                            assert!(x.channel == Channel::Mono); // current decoder is mono only
-
-                            let decoded = decode_adpcm(x.wave_data);
-                            let channel = match x.channel {
-                                Channel::Mono => 1,
-                                Channel::Stereo => 2,
-                            };
-
-                            self.backend.play_wave(channel, x.sampling_freq as _, &decoded);
-
-                            let duration = Duration::from_secs_f32(decoded.len() as f32 / x.sampling_freq as f32);
-                            self.backend.sleep(duration).await;
-                        }
+                for pcm_chunk in x {
+                    let PcmDataChunk::WaveData(x, y) = pcm_chunk;
+                    if *x == channel {
+                        return y;
                     }
                 }
             }
         }
+        panic!("No pcm data found")
     }
 }
 

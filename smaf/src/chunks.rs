@@ -7,5 +7,5 @@ pub use self::{
     content_info::ContentsInfoChunk,
     optional_data::OptionalDataChunk,
     pcm_audio_track::PCMAudioTrackChunk,
-    score_track::{PcmDataChunk, ScoreTrack, ScoreTrackChunk},
+    score_track::{MobileStandardSequenceData, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, WaveData},
 };
