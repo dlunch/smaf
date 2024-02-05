@@ -11,7 +11,7 @@ use smaf::{Channel, MobileStandardSequenceData, PcmDataChunk, ScoreTrack, ScoreT
 
 use self::adpcm::decode_adpcm;
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 pub trait AudioBackend {
     fn play_wave(&self, channel: u8, sampling_rate: u32, wave_data: &[i16]);
     fn midi_note_on(&self, channel_id: u8, note: u8, velocity: u8);
