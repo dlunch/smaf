@@ -69,7 +69,8 @@ impl<'a> ScoreTrackPlayer<'a> {
                     self.backend.midi_program_change(channel, program);
                 }
                 SequenceEvent::Exclusive(_) => {}
-                _ => unimplemented!(),
+                SequenceEvent::Nop => {}
+                SequenceEvent::PitchBend { .. } => {}
             }
         }
     }

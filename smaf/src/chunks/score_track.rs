@@ -151,6 +151,13 @@ impl MobileStandardSequenceData {
                     if second_byte == 0x2F {
                         let (remaining, _) = u8(data)?;
                         data = remaining;
+
+                        // XXX dummy nop message to play until end
+                        result.push(Self {
+                            duration,
+                            event: SequenceEvent::Nop,
+                        });
+
                         break;
                     } else if second_byte == 0x00 {
                         SequenceEvent::Nop
