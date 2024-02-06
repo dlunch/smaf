@@ -42,6 +42,11 @@ impl AudioBackend for AudioBackendImpl {
         });
     }
 
+    fn midi_control_change(&self, channel_id: u8, control: u8, value: u8) {
+        println!("[{}] ControlChange: {} Value: {}", channel_id, control, value);
+        self.midi_out.borrow_mut().send(&[0xB0 | channel_id, control, value]).unwrap()
+    }
+
     fn midi_program_change(&self, channel_id: u8, program: u8) {
         println!("[{}] ProgramChange: {}", channel_id, program);
         self.midi_out.borrow_mut().send(&[0xC0 | channel_id, program]).unwrap()
