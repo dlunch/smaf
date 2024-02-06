@@ -244,7 +244,7 @@ pub struct ScoreTrack<'a> {
     pub sequence_type: u8,
     pub timebase_d: u8,
     pub timebase_g: u8,
-    #[nom(Parse = "{ |x| parse_channel_status(format_type, x) }")]
+    #[nom(Parse = "|x| parse_channel_status(format_type, x)")]
     pub channel_status: Vec<ChannelStatus>,
     #[nom(Parse = "many0(complete(ScoreTrackChunk::parse))")]
     pub chunks: Vec<ScoreTrackChunk<'a>>,
