@@ -1,15 +1,15 @@
 use core::time::Duration;
-use std::{cell::RefCell, env::args, fs};
+use std::{cell::RefCell, env::args, fs, rc::Rc};
 
 use midir::{MidiOutput, MidiOutputConnection};
 use rodio::{buffer::SamplesBuffer, OutputStream, OutputStreamHandle, Sink};
-use tokio::time::sleep;
+use tokio::{task, time::sleep};
 
 use smaf::Smaf;
 use smaf_player::{play_smaf, AudioBackend};
 
 struct AudioBackendImpl {
-    midi_out: RefCell<MidiOutputConnection>,
+    midi_out: Rc<RefCell<MidiOutputConnection>>,
     sink: Sink,
 }
 
@@ -17,7 +17,7 @@ impl AudioBackendImpl {
     pub fn new(midi_out: MidiOutputConnection, stream_handle: OutputStreamHandle) -> Self {
         let sink = Sink::try_new(&stream_handle).unwrap();
         Self {
-            midi_out: RefCell::new(midi_out),
+            midi_out: Rc::new(RefCell::new(midi_out)),
             sink,
         }
     }
@@ -31,15 +31,19 @@ impl AudioBackend for AudioBackendImpl {
         self.sink.append(buffer);
     }
 
-    fn midi_note_on(&self, channel_id: u8, note: u8, velocity: u8) {
-        self.midi_out.borrow_mut().send(&[0x90 | channel_id, note, velocity]).unwrap()
-    }
+    fn midi_note(&self, channel_id: u8, note: u8, velocity: u8, duration: Duration) {
+        println!("[{}] Note: {} Velocity: {} Duration: {:?}", channel_id, note, velocity, duration);
+        self.midi_out.borrow_mut().send(&[0x90 | channel_id, note, velocity]).unwrap();
 
-    fn midi_note_off(&self, channel_id: u8, note: u8) {
-        self.midi_out.borrow_mut().send(&[0x80 | channel_id, note, 0]).unwrap()
+        let midi_out_clone = self.midi_out.clone();
+        task::spawn_local(async move {
+            sleep(duration).await;
+            midi_out_clone.borrow_mut().send(&[0x80 | channel_id, note, 0]).unwrap()
+        });
     }
 
     fn midi_program_change(&self, channel_id: u8, program: u8) {
+        println!("[{}] ProgramChange: {}", channel_id, program);
         self.midi_out.borrow_mut().send(&[0xC0 | channel_id, program]).unwrap()
     }
 
@@ -61,6 +65,11 @@ pub async fn main() {
     let midi_out = midi_out.connect(out_port, "smaf_cli").unwrap();
 
     let (_output_stream, stream_handle) = OutputStream::try_default().unwrap();
+    let local = task::LocalSet::new();
 
-    play_smaf(&smaf, &AudioBackendImpl::new(midi_out, stream_handle)).await;
+    local
+        .run_until(async move {
+            play_smaf(&smaf, &AudioBackendImpl::new(midi_out, stream_handle)).await;
+        })
+        .await;
 }

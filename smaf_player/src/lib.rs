@@ -14,8 +14,7 @@ use self::adpcm::decode_adpcm;
 #[async_trait::async_trait(?Send)]
 pub trait AudioBackend {
     fn play_wave(&self, channel: u8, sampling_rate: u32, wave_data: &[i16]);
-    fn midi_note_on(&self, channel_id: u8, note: u8, velocity: u8);
-    fn midi_note_off(&self, channel_id: u8, note: u8);
+    fn midi_note(&self, channel_id: u8, note: u8, velocity: u8, duration: Duration);
     fn midi_program_change(&self, channel_id: u8, program: u8);
     async fn sleep(&self, duration: Duration);
 }
@@ -58,15 +57,8 @@ impl<'a> ScoreTrackPlayer<'a> {
                         };
                         self.backend.play_wave(channel, pcm.sampling_freq as _, &decoded);
                     } else {
-                        self.backend.midi_note_on(channel, note, velocity);
-                    }
-
-                    self.backend
-                        .sleep(Duration::from_millis((gate_time * (self.score_track.timebase_g as u32)) as _))
-                        .await;
-
-                    if note != 0 {
-                        self.backend.midi_note_off(channel, note);
+                        let duration = Duration::from_millis((gate_time * (self.score_track.timebase_g as u32)) as _);
+                        self.backend.midi_note(channel, note, velocity, duration);
                     }
                 }
                 SequenceEvent::ControlChange {
