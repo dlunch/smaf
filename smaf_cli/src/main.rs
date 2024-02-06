@@ -57,7 +57,7 @@ impl AudioBackend for AudioBackendImpl {
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 pub async fn main() {
     let file = args().nth(1).expect("No file given");
     let data = fs::read(file).expect("Failed to read file");
