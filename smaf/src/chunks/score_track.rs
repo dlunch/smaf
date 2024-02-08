@@ -10,7 +10,10 @@ use nom::{
 };
 use nom_derive::{NomBE, Parse};
 
-use crate::constants::{BaseBit, Channel, FormatType, StreamWaveFormat};
+use crate::{
+    chunks::parse_timebase,
+    constants::{BaseBit, Channel, FormatType, StreamWaveFormat},
+};
 
 pub struct WaveData<'a> {
     pub channel: Channel,
@@ -249,7 +252,9 @@ impl ChannelStatus {
 pub struct ScoreTrack<'a> {
     pub format_type: FormatType,
     pub sequence_type: u8,
+    #[nom(Parse = "map(u8, parse_timebase)")]
     pub timebase_d: u8,
+    #[nom(Parse = "map(u8, parse_timebase)")]
     pub timebase_g: u8,
     #[nom(Parse = "|x| parse_channel_status(format_type, x)")]
     pub channel_status: Vec<ChannelStatus>,

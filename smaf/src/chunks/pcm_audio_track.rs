@@ -8,6 +8,8 @@ use nom_derive::Parse;
 
 use crate::constants::{BaseBit, Channel, PcmWaveFormat};
 
+use super::parse_timebase;
+
 pub struct PCMAudioTrackChunk<'a> {
     pub format_type: u8,   // should be 0
     pub sequence_type: u8, // 0: stream sequence, 1: sub-sequence
@@ -40,29 +42,8 @@ impl<'a> Parse<&'a [u8]> for PCMAudioTrackChunk<'a> {
                     _ => panic!("Invalid sampling frequency {}", sampling_freq),
                 };
 
-                let timebase_d = match timebase_d {
-                    0 => 1,
-                    1 => 2,
-                    2 => 4,
-                    3 => 5,
-                    0x10 => 10,
-                    0x11 => 20,
-                    0x12 => 40,
-                    0x13 => 50,
-                    _ => panic!("Invalid timebase"),
-                };
-
-                let timebase_g = match timebase_g {
-                    0 => 1,
-                    1 => 2,
-                    2 => 4,
-                    3 => 5,
-                    0x10 => 10,
-                    0x11 => 20,
-                    0x12 => 40,
-                    0x13 => 50,
-                    _ => panic!("Invalid timebase"),
-                };
+                let timebase_d = parse_timebase(timebase_d);
+                let timebase_g = parse_timebase(timebase_g);
 
                 Ok::<_, nom::Err<nom::error::Error<&'a [u8]>>>(Self {
                     format_type,
