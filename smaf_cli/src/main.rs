@@ -1,5 +1,10 @@
 use core::time::Duration;
-use std::{cell::RefCell, env::args, fs};
+use std::{
+    cell::RefCell,
+    env::args,
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use midir::{MidiOutput, MidiOutputConnection};
 use rodio::{buffer::SamplesBuffer, OutputStream, OutputStreamHandle, Sink};
@@ -53,6 +58,10 @@ impl AudioBackend for AudioBackendImpl {
 
     async fn sleep(&self, duration: Duration) {
         sleep(duration).await
+    }
+
+    fn now_millis(&self) -> u64 {
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as _
     }
 }
 

@@ -24,6 +24,7 @@ pub trait AudioBackend {
     fn midi_program_change(&self, channel_id: u8, program: u8);
     fn midi_control_change(&self, channel_id: u8, control: u8, value: u8);
     async fn sleep(&self, duration: Duration);
+    fn now_millis(&self) -> u64;
 }
 
 struct ScoreTrackPlayer<'a> {
@@ -39,27 +40,28 @@ impl<'a> ScoreTrackPlayer<'a> {
     pub async fn play(&self) {
         let sequence_data = self.sequence_data();
 
-        let mut now = 0;
-        let mut pending_note_off: BTreeMap<u32, Vec<_>> = BTreeMap::new();
+        let mut now = self.backend.now_millis();
+        let mut pending_note_off: BTreeMap<u64, Vec<_>> = BTreeMap::new();
         for event in sequence_data {
-            let next_event_start = now + event.duration * (self.score_track.timebase_d as u32);
+            let next_event_start = now + (event.duration * (self.score_track.timebase_d as u32)) as u64;
 
             let next_pending_note_off = pending_note_off.split_off(&(next_event_start));
             for (time, entries) in pending_note_off.into_iter() {
-                if time - now > 0 {
+                if time > now {
                     self.backend.sleep(Duration::from_millis((time - now) as _)).await;
+                    now = self.backend.now_millis();
                 }
 
                 for (channel, note, velocity) in entries.into_iter() {
                     self.backend.midi_note_off(channel, note, velocity);
                 }
-
-                now = time;
             }
             pending_note_off = next_pending_note_off;
 
-            self.backend.sleep(Duration::from_millis((next_event_start - now) as _)).await;
-            now = next_event_start;
+            if next_event_start > now {
+                self.backend.sleep(Duration::from_millis((next_event_start - now) as _)).await;
+            }
+            now = self.backend.now_millis();
 
             match event.event {
                 SequenceEvent::NoteMessage {
@@ -84,10 +86,11 @@ impl<'a> ScoreTrackPlayer<'a> {
                         let duration = gate_time * (self.score_track.timebase_g as u32);
                         self.backend.midi_note_on(channel, note, velocity);
 
-                        if let Entry::Vacant(entry) = pending_note_off.entry(now + duration) {
+                        let end = now + duration as u64;
+                        if let Entry::Vacant(entry) = pending_note_off.entry(end) {
                             entry.insert(vec![(channel, note, velocity)]);
                         } else {
-                            pending_note_off.get_mut(&(now + duration)).unwrap().push((channel, note, velocity));
+                            pending_note_off.get_mut(&(end)).unwrap().push((channel, note, velocity));
                         }
                     }
                 }
