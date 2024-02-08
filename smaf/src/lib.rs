@@ -8,7 +8,7 @@ mod smaf;
 type SmafResult<T> = anyhow::Result<T>;
 
 pub use self::{
-    chunks::{MobileStandardSequenceData, PCMAudioTrackChunk, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, WaveData},
+    chunks::{MobileStandardSequenceData, PCMAudioTrack, PcmAudioTrackChunk, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, WaveData},
     constants::{BaseBit, Channel, FormatType, PcmWaveFormat, StreamWaveFormat},
     smaf::{Smaf, SmafChunk},
 };

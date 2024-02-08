@@ -12,9 +12,7 @@ use core::time::Duration;
 mod adpcm;
 
 use futures::future::join_all;
-use smaf::{
-    Channel, MobileStandardSequenceData, PCMAudioTrackChunk, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, Smaf, SmafChunk, WaveData,
-};
+use smaf::{Channel, MobileStandardSequenceData, PCMAudioTrack, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, Smaf, SmafChunk, WaveData};
 
 use self::adpcm::decode_adpcm;
 
@@ -143,12 +141,12 @@ impl<'a> Player for ScoreTrackPlayer<'a> {
 
 #[allow(dead_code)]
 struct PcmAudioTrackPlayer<'a> {
-    pcm_audio_track: &'a PCMAudioTrackChunk<'a>,
+    pcm_audio_track: &'a PCMAudioTrack<'a>,
     backend: &'a dyn AudioBackend,
 }
 
 impl<'a> PcmAudioTrackPlayer<'a> {
-    pub fn new(pcm_audio_track: &'a PCMAudioTrackChunk<'a>, backend: &'a dyn AudioBackend) -> Self {
+    pub fn new(pcm_audio_track: &'a PCMAudioTrack<'a>, backend: &'a dyn AudioBackend) -> Self {
         Self { pcm_audio_track, backend }
     }
 }

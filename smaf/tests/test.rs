@@ -1,4 +1,4 @@
-use smaf::{BaseBit, Channel, FormatType, PcmDataChunk, PcmWaveFormat, ScoreTrackChunk, Smaf, SmafChunk, StreamWaveFormat};
+use smaf::{BaseBit, Channel, FormatType, PcmAudioTrackChunk, PcmDataChunk, PcmWaveFormat, ScoreTrackChunk, Smaf, SmafChunk, StreamWaveFormat};
 
 #[test]
 fn test_bell_load() -> anyhow::Result<()> {
@@ -59,7 +59,11 @@ fn test_wave_load() -> anyhow::Result<()> {
         assert_eq!(x.timebase_d, 4);
         assert_eq!(x.timebase_g, 4);
 
-        assert_eq!(x.chunks.len(), 12874);
+        assert_eq!(x.chunks.len(), 3);
+
+        assert!(matches!(x.chunks[0], PcmAudioTrackChunk::SeekAndPhraseInfo(_)));
+        assert!(matches!(x.chunks[1], PcmAudioTrackChunk::SequenceData(_)));
+        assert!(matches!(x.chunks[2], PcmAudioTrackChunk::WaveData(1, _)));
     } else {
         panic!("Expected PCMAudioTrack chunk");
     }

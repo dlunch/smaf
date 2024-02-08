@@ -20,6 +20,6 @@ pub fn parse_timebase(raw: u8) -> u8 {
 pub use self::{
     content_info::ContentsInfoChunk,
     optional_data::OptionalDataChunk,
-    pcm_audio_track::PCMAudioTrackChunk,
+    pcm_audio_track::{PCMAudioTrack, PcmAudioTrackChunk},
     score_track::{MobileStandardSequenceData, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, WaveData},
 };
