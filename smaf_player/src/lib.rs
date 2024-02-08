@@ -12,7 +12,9 @@ use core::time::Duration;
 mod adpcm;
 
 use futures::future::join_all;
-use smaf::{Channel, MobileStandardSequenceData, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, Smaf, SmafChunk, WaveData};
+use smaf::{
+    Channel, MobileStandardSequenceData, PCMAudioTrackChunk, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, Smaf, SmafChunk, WaveData,
+};
 
 use self::adpcm::decode_adpcm;
 
@@ -27,17 +29,48 @@ pub trait AudioBackend {
     fn now_millis(&self) -> u64;
 }
 
+#[async_trait::async_trait(?Send)]
+trait Player {
+    async fn play(self);
+}
+
 struct ScoreTrackPlayer<'a> {
     score_track: &'a ScoreTrack<'a>,
     backend: &'a dyn AudioBackend,
 }
 
 impl<'a> ScoreTrackPlayer<'a> {
-    pub fn new(score_track: &'a ScoreTrack, backend: &'a dyn AudioBackend) -> Self {
+    pub fn new(score_track: &'a ScoreTrack<'a>, backend: &'a dyn AudioBackend) -> Self {
         Self { score_track, backend }
     }
 
-    pub async fn play(&self) {
+    fn sequence_data(&self) -> &[MobileStandardSequenceData] {
+        for chunk in self.score_track.chunks.iter() {
+            if let ScoreTrackChunk::SequenceData(x) = chunk {
+                return x;
+            }
+        }
+        panic!("No sequence data found")
+    }
+
+    fn pcm_data(&self, channel: u8) -> &WaveData {
+        for chunk in self.score_track.chunks.iter() {
+            if let ScoreTrackChunk::PcmData(x) = chunk {
+                for pcm_chunk in x {
+                    let PcmDataChunk::WaveData(x, y) = pcm_chunk;
+                    if *x == channel {
+                        return y;
+                    }
+                }
+            }
+        }
+        panic!("No pcm data found")
+    }
+}
+
+#[async_trait::async_trait(?Send)]
+impl<'a> Player for ScoreTrackPlayer<'a> {
+    async fn play(self) {
         let sequence_data = self.sequence_data();
 
         let mut now = self.backend.now_millis();
@@ -106,36 +139,33 @@ impl<'a> ScoreTrackPlayer<'a> {
             }
         }
     }
+}
 
-    fn sequence_data(&self) -> &[MobileStandardSequenceData] {
-        for chunk in self.score_track.chunks.iter() {
-            if let ScoreTrackChunk::SequenceData(x) = chunk {
-                return x;
-            }
-        }
-        panic!("No sequence data found")
+#[allow(dead_code)]
+struct PcmAudioTrackPlayer<'a> {
+    pcm_audio_track: &'a PCMAudioTrackChunk<'a>,
+    backend: &'a dyn AudioBackend,
+}
+
+impl<'a> PcmAudioTrackPlayer<'a> {
+    pub fn new(pcm_audio_track: &'a PCMAudioTrackChunk<'a>, backend: &'a dyn AudioBackend) -> Self {
+        Self { pcm_audio_track, backend }
     }
+}
 
-    fn pcm_data(&self, channel: u8) -> &WaveData {
-        for chunk in self.score_track.chunks.iter() {
-            if let ScoreTrackChunk::PcmData(x) = chunk {
-                for pcm_chunk in x {
-                    let PcmDataChunk::WaveData(x, y) = pcm_chunk;
-                    if *x == channel {
-                        return y;
-                    }
-                }
-            }
-        }
-        panic!("No pcm data found")
+#[async_trait::async_trait(?Send)]
+impl Player for PcmAudioTrackPlayer<'_> {
+    async fn play(self) {
+        todo!()
     }
 }
 
 pub async fn play_smaf(smaf: &Smaf<'_>, backend: &dyn AudioBackend) {
     let players = smaf.chunks.iter().filter_map(|x| match x {
-        SmafChunk::ScoreTrack(_, x) => Some(ScoreTrackPlayer::new(x, backend)),
+        SmafChunk::ScoreTrack(_, x) => Some(ScoreTrackPlayer::new(x, backend).play()),
+        SmafChunk::PCMAudioTrack(_, x) => Some(PcmAudioTrackPlayer::new(x, backend).play()),
         _ => None,
     });
 
-    join_all(players.map(|x| async move { x.play().await })).await;
+    join_all(players).await;
 }
