@@ -11,7 +11,7 @@ use nom::{
 use nom_derive::{NomBE, Parse};
 
 use crate::{
-    chunks::parse_timebase,
+    chunks::{parse_timebase, parse_variable_number},
     constants::{BaseBit, Channel, FormatType, StreamWaveFormat},
 };
 
@@ -75,7 +75,7 @@ impl MobileStandardSequenceData {
         let mut data = input;
         let mut result = Vec::new();
         loop {
-            let (remaining, duration) = Self::parse_variable_number(data)?;
+            let (remaining, duration) = parse_variable_number(data)?;
             let (remaining, status_byte) = u8(remaining)?;
 
             let event = match status_byte {
@@ -83,7 +83,7 @@ impl MobileStandardSequenceData {
                     // NoteMessage without velocity
                     let channel = status_byte & 0b0000_1111;
                     let (remaining, note) = u8(remaining)?;
-                    let (remaining, gate_time) = Self::parse_variable_number(remaining)?;
+                    let (remaining, gate_time) = parse_variable_number(remaining)?;
                     data = remaining;
 
                     SequenceEvent::NoteMessage {
@@ -98,7 +98,7 @@ impl MobileStandardSequenceData {
                     let channel = status_byte & 0b0000_1111;
                     let (remaining, note) = u8(remaining)?;
                     let (remaining, velocity) = u8(remaining)?;
-                    let (remaining, gate_time) = Self::parse_variable_number(remaining)?;
+                    let (remaining, gate_time) = parse_variable_number(remaining)?;
                     data = remaining;
 
                     SequenceEvent::NoteMessage {
@@ -140,7 +140,7 @@ impl MobileStandardSequenceData {
                 }
                 0xF0 => {
                     // exclusive
-                    let (remaining, length) = Self::parse_variable_number(remaining)?;
+                    let (remaining, length) = parse_variable_number(remaining)?;
                     let (remaining, exclusive_data) = take(length)(remaining)?;
                     data = remaining;
 
@@ -172,21 +172,6 @@ impl MobileStandardSequenceData {
             };
 
             result.push(Self { duration, event })
-        }
-
-        Ok((data, result))
-    }
-
-    fn parse_variable_number(input: &[u8]) -> IResult<&[u8], u32> {
-        let mut data = input;
-        let mut result = 0;
-        loop {
-            let (remaining, byte) = u8(data)?;
-            data = remaining;
-            result = (result << 7) | (byte & 0b0111_1111) as u32;
-            if byte & 0b1000_0000 == 0 {
-                break;
-            }
         }
 
         Ok((data, result))

@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use nom::{
     bytes::complete::take,
-    combinator::{complete, flat_map, map_res},
+    combinator::{all_consuming, complete, flat_map, map_res},
     multi::many0,
     number::complete::{be_u16, be_u32, u8},
     sequence::tuple,
@@ -9,14 +9,145 @@ use nom::{
 };
 use nom_derive::Parse;
 
-use crate::constants::{BaseBit, Channel, PcmWaveFormat};
+use crate::{
+    chunks::{parse_timebase, parse_variable_number},
+    constants::{BaseBit, Channel, PcmWaveFormat},
+};
 
-use super::parse_timebase;
+pub enum SequenceEvent {
+    WaveMessage { channel: u8, wave_number: u8, gate_time: u32 },
+    PitchBend { channel: u8, value: u8 },
+    Volume { channel: u8, value: u8 },
+    Pan { channel: u8, value: u8 },
+    Expression { channel: u8, value: u8 },
+    Exclusive(Vec<u8>),
+    Nop,
+}
+
+pub struct HandyPhoneStandardSequenceData {
+    pub duration: u32,
+    pub event: SequenceEvent,
+}
+
+impl HandyPhoneStandardSequenceData {
+    pub fn parse(input: &[u8]) -> IResult<&[u8], Vec<Self>> {
+        let mut data = input;
+        let mut result = Vec::new();
+        loop {
+            if data.len() == 4 && data[0] == 0 && data[1] == 0 && data[2] == 0 && data[3] == 0 {
+                let (remaining, _) = take(4usize)(data)?;
+                data = remaining;
+                break;
+            }
+
+            let (remaining, duration) = parse_variable_number(data)?;
+            let (remaining, first_byte) = u8(remaining)?;
+            data = remaining;
+
+            if first_byte != 0 {
+                if first_byte == 0xff {
+                    let (remaining, second_byte) = u8(data)?;
+                    data = remaining;
+
+                    if second_byte == 0b1111_0000 {
+                        let (remaining, length) = u8(data)?;
+                        let (remaining, exclusive_data) = take(length as usize)(remaining)?;
+                        data = remaining;
+
+                        result.push(Self {
+                            duration,
+                            event: SequenceEvent::Exclusive(exclusive_data.to_vec()),
+                        });
+                    } else if second_byte == 0 {
+                        result.push(Self {
+                            duration,
+                            event: SequenceEvent::Nop,
+                        });
+                    } else {
+                        panic!("Invalid second byte")
+                    }
+                } else {
+                    let channel = first_byte >> 6;
+                    let wave_number = first_byte & 0b0011_1111;
+                    let (remaining, gate_time) = parse_variable_number(remaining)?;
+                    data = remaining;
+
+                    result.push(Self {
+                        duration,
+                        event: SequenceEvent::WaveMessage {
+                            channel,
+                            wave_number,
+                            gate_time,
+                        },
+                    });
+                }
+            } else {
+                let (remaining, second_byte) = u8(data)?;
+                let channel = second_byte & 0b1100_0000;
+                if second_byte & 0b0011_1100 == 0b0011_0100 {
+                    let (remaining, value) = u8(remaining)?;
+                    data = remaining;
+
+                    result.push(Self {
+                        duration,
+                        event: SequenceEvent::PitchBend { channel, value },
+                    })
+                } else if second_byte & 0b0011_0000 == 0b0011_0000 {
+                    data = remaining;
+
+                    let value = (second_byte & 0b0000_1111) * 8;
+
+                    result.push(Self {
+                        duration,
+                        event: SequenceEvent::PitchBend { channel, value },
+                    })
+                } else if second_byte & 0b0011_0111 == 0b0011_0110 {
+                    let (remaining, value) = u8(remaining)?;
+                    data = remaining;
+
+                    result.push(Self {
+                        duration,
+                        event: SequenceEvent::Volume { channel, value },
+                    })
+                } else if second_byte & 0b0011_1010 == 0b0011_1010 {
+                    let (remaining, value) = u8(remaining)?;
+                    data = remaining;
+
+                    result.push(Self {
+                        duration,
+                        event: SequenceEvent::Pan { channel, value },
+                    })
+                } else if second_byte & 0b0011_1011 == 0b0011_1011 {
+                    let (remaining, value) = u8(remaining)?;
+                    data = remaining;
+
+                    result.push(Self {
+                        duration,
+                        event: SequenceEvent::Expression { channel, value },
+                    })
+                } else if second_byte & 0b0011_0000 == 0b0000_0000 {
+                    data = remaining;
+
+                    let value = ((second_byte & 0b0000_1111) - 1) * 31;
+
+                    result.push(Self {
+                        duration,
+                        event: SequenceEvent::Expression { channel, value },
+                    })
+                } else {
+                    panic!("Invalid second byte")
+                }
+            }
+        }
+
+        Ok((data, result))
+    }
+}
 
 pub enum PcmAudioTrackChunk<'a> {
     SeekAndPhraseInfo(&'a [u8]),
     SetupData(&'a [u8]),
-    SequenceData(&'a [u8]),
+    SequenceData(Vec<HandyPhoneStandardSequenceData>),
     WaveData(u8, &'a [u8]),
 }
 
@@ -26,7 +157,7 @@ impl<'a> Parse<&'a [u8]> for PcmAudioTrackChunk<'a> {
             Ok::<_, nom::Err<_>>(match tag {
                 b"AspI" => PcmAudioTrackChunk::SeekAndPhraseInfo(data),
                 b"Atsu" => PcmAudioTrackChunk::SetupData(data),
-                b"Atsq" => PcmAudioTrackChunk::SequenceData(data),
+                b"Atsq" => PcmAudioTrackChunk::SequenceData(all_consuming(HandyPhoneStandardSequenceData::parse)(data)?.1),
                 &[b'A', b'w', b'a', x] => PcmAudioTrackChunk::WaveData(x, data),
                 _ => {
                     return Err(nom::Err::Error::<nom::error::Error<&'a [u8]>>(nom::error_position!(
