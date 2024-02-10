@@ -41,11 +41,11 @@ impl<'a> Parse<&'a [u8]> for WaveData<'a> {
     }
 }
 
-pub enum PcmDataChunk<'a> {
+pub enum PCMDataChunk<'a> {
     WaveData(u8, WaveData<'a>),
 }
 
-impl<'a> Parse<&'a [u8]> for PcmDataChunk<'a> {
+impl<'a> Parse<&'a [u8]> for PCMDataChunk<'a> {
     fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
@@ -56,7 +56,7 @@ impl<'a> Parse<&'a [u8]> for PcmDataChunk<'a> {
     }
 }
 
-pub enum SequenceEvent {
+pub enum ScoreTrackSequenceEvent {
     NoteMessage { channel: u8, note: u8, velocity: u8, gate_time: u32 },
     ControlChange { channel: u8, control: u8, value: u8 },
     ProgramChange { channel: u8, program: u8 },
@@ -67,7 +67,7 @@ pub enum SequenceEvent {
 
 pub struct MobileStandardSequenceData {
     pub duration: u32,
-    pub event: SequenceEvent,
+    pub event: ScoreTrackSequenceEvent,
 }
 
 impl MobileStandardSequenceData {
@@ -86,7 +86,7 @@ impl MobileStandardSequenceData {
                     let (remaining, gate_time) = parse_variable_number(remaining)?;
                     data = remaining;
 
-                    SequenceEvent::NoteMessage {
+                    ScoreTrackSequenceEvent::NoteMessage {
                         channel,
                         note,
                         velocity: 64,
@@ -101,7 +101,7 @@ impl MobileStandardSequenceData {
                     let (remaining, gate_time) = parse_variable_number(remaining)?;
                     data = remaining;
 
-                    SequenceEvent::NoteMessage {
+                    ScoreTrackSequenceEvent::NoteMessage {
                         channel,
                         note,
                         velocity,
@@ -115,7 +115,7 @@ impl MobileStandardSequenceData {
                     let (remaining, value) = u8(remaining)?;
                     data = remaining;
 
-                    SequenceEvent::ControlChange { channel, control, value }
+                    ScoreTrackSequenceEvent::ControlChange { channel, control, value }
                 }
                 0xC0..=0xCF => {
                     // ProgramChange
@@ -123,7 +123,7 @@ impl MobileStandardSequenceData {
                     let (remaining, program) = u8(remaining)?;
                     data = remaining;
 
-                    SequenceEvent::ProgramChange { channel, program }
+                    ScoreTrackSequenceEvent::ProgramChange { channel, program }
                 }
                 0xE0..=0xEF => {
                     // PitchBend
@@ -132,7 +132,7 @@ impl MobileStandardSequenceData {
                     let (remaining, value_msb) = u8(remaining)?;
                     data = remaining;
 
-                    SequenceEvent::PitchBend {
+                    ScoreTrackSequenceEvent::PitchBend {
                         channel,
                         value_lsb,
                         value_msb,
@@ -144,7 +144,7 @@ impl MobileStandardSequenceData {
                     let (remaining, exclusive_data) = take(length)(remaining)?;
                     data = remaining;
 
-                    SequenceEvent::Exclusive(exclusive_data.to_vec())
+                    ScoreTrackSequenceEvent::Exclusive(exclusive_data.to_vec())
                 }
                 0xFF => {
                     // EndOfStream or nop
@@ -158,12 +158,12 @@ impl MobileStandardSequenceData {
                         // XXX dummy nop message to play until end
                         result.push(Self {
                             duration,
-                            event: SequenceEvent::Nop,
+                            event: ScoreTrackSequenceEvent::Nop,
                         });
 
                         break;
                     } else if second_byte == 0x00 {
-                        SequenceEvent::Nop
+                        ScoreTrackSequenceEvent::Nop
                     } else {
                         panic!("Invalid status byte");
                     }
@@ -182,7 +182,7 @@ impl MobileStandardSequenceData {
 pub enum ScoreTrackChunk<'a> {
     SetupData(&'a [u8]),
     SequenceData(Vec<MobileStandardSequenceData>),
-    PcmData(Vec<PcmDataChunk<'a>>),
+    PCMData(Vec<PCMDataChunk<'a>>),
 }
 
 impl<'a> Parse<&'a [u8]> for ScoreTrackChunk<'a> {
@@ -191,7 +191,7 @@ impl<'a> Parse<&'a [u8]> for ScoreTrackChunk<'a> {
             Ok::<_, nom::Err<_>>(match tag {
                 b"Mtsu" => ScoreTrackChunk::SetupData(data),
                 b"Mtsq" => ScoreTrackChunk::SequenceData(all_consuming(MobileStandardSequenceData::parse)(data)?.1),
-                b"Mtsp" => ScoreTrackChunk::PcmData(all_consuming(many0(complete(PcmDataChunk::parse)))(data)?.1),
+                b"Mtsp" => ScoreTrackChunk::PCMData(all_consuming(many0(complete(PCMDataChunk::parse)))(data)?.1),
                 _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
             })
         })(data)

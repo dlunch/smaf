@@ -37,6 +37,6 @@ pub fn parse_variable_number(input: &[u8]) -> IResult<&[u8], u32> {
 pub use self::{
     content_info::ContentsInfoChunk,
     optional_data::OptionalDataChunk,
-    pcm_audio_track::{PCMAudioTrack, PcmAudioTrackChunk},
-    score_track::{MobileStandardSequenceData, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, WaveData},
+    pcm_audio_track::{PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrack, PCMAudioTrackChunk},
+    score_track::{MobileStandardSequenceData, PCMDataChunk, ScoreTrack, ScoreTrackChunk, ScoreTrackSequenceEvent, WaveData},
 };

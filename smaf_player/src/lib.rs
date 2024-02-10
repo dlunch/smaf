@@ -12,7 +12,10 @@ use core::time::Duration;
 mod adpcm;
 
 use futures::future::join_all;
-use smaf::{Channel, MobileStandardSequenceData, PCMAudioTrack, PcmDataChunk, ScoreTrack, ScoreTrackChunk, SequenceEvent, Smaf, SmafChunk, WaveData};
+use smaf::{
+    Channel, MobileStandardSequenceData, PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrack, PCMAudioTrackChunk, PCMDataChunk, ScoreTrack,
+    ScoreTrackChunk, ScoreTrackSequenceEvent, Smaf, SmafChunk, WaveData,
+};
 
 use self::adpcm::decode_adpcm;
 
@@ -53,9 +56,9 @@ impl<'a> ScoreTrackPlayer<'a> {
 
     fn pcm_data(&self, channel: u8) -> &WaveData {
         for chunk in self.score_track.chunks.iter() {
-            if let ScoreTrackChunk::PcmData(x) = chunk {
+            if let ScoreTrackChunk::PCMData(x) = chunk {
                 for pcm_chunk in x {
-                    let PcmDataChunk::WaveData(x, y) = pcm_chunk;
+                    let PCMDataChunk::WaveData(x, y) = pcm_chunk;
                     if *x == channel {
                         return y;
                     }
@@ -95,7 +98,7 @@ impl<'a> Player for ScoreTrackPlayer<'a> {
             now = self.backend.now_millis();
 
             match event.event {
-                SequenceEvent::NoteMessage {
+                ScoreTrackSequenceEvent::NoteMessage {
                     channel,
                     note,
                     velocity,
@@ -125,43 +128,90 @@ impl<'a> Player for ScoreTrackPlayer<'a> {
                         }
                     }
                 }
-                SequenceEvent::ControlChange { channel, control, value } => {
+                ScoreTrackSequenceEvent::ControlChange { channel, control, value } => {
                     self.backend.midi_control_change(channel, control, value);
                 }
-                SequenceEvent::ProgramChange { channel, program } => {
+                ScoreTrackSequenceEvent::ProgramChange { channel, program } => {
                     self.backend.midi_program_change(channel, program);
                 }
-                SequenceEvent::Exclusive(_) => {}
-                SequenceEvent::Nop => {}
-                SequenceEvent::PitchBend { .. } => {}
+                ScoreTrackSequenceEvent::Exclusive(_) => {}
+                ScoreTrackSequenceEvent::Nop => {}
+                ScoreTrackSequenceEvent::PitchBend { .. } => {}
             }
         }
     }
 }
 
 #[allow(dead_code)]
-struct PcmAudioTrackPlayer<'a> {
+struct PCMAudioTrackPlayer<'a> {
     pcm_audio_track: &'a PCMAudioTrack<'a>,
     backend: &'a dyn AudioBackend,
 }
 
-impl<'a> PcmAudioTrackPlayer<'a> {
+impl<'a> PCMAudioTrackPlayer<'a> {
     pub fn new(pcm_audio_track: &'a PCMAudioTrack<'a>, backend: &'a dyn AudioBackend) -> Self {
         Self { pcm_audio_track, backend }
+    }
+
+    fn sequence_data(&self) -> &[PCMAudioSequenceData] {
+        for chunk in self.pcm_audio_track.chunks.iter() {
+            if let PCMAudioTrackChunk::SequenceData(x) = chunk {
+                return x;
+            }
+        }
+        panic!("No sequence data found")
+    }
+
+    fn wave_data(&self, channel: u8) -> &[u8] {
+        for chunk in self.pcm_audio_track.chunks.iter() {
+            if let PCMAudioTrackChunk::WaveData(x, y) = chunk {
+                if *x == channel {
+                    return y;
+                }
+            }
+        }
+        panic!("No pcm data found")
     }
 }
 
 #[async_trait::async_trait(?Send)]
-impl Player for PcmAudioTrackPlayer<'_> {
+impl Player for PCMAudioTrackPlayer<'_> {
     async fn play(self) {
-        todo!()
+        let sequence_data = self.sequence_data();
+
+        for event in sequence_data {
+            match event.event {
+                PCMAudioSequenceEvent::WaveMessage {
+                    channel: _,
+                    wave_number,
+                    gate_time: _,
+                } => {
+                    let pcm = self.wave_data(wave_number);
+                    assert!(self.pcm_audio_track.format == smaf::PcmWaveFormat::Adpcm); // current decoder is adpcm only
+                    assert!(self.pcm_audio_track.channel == Channel::Mono); // current decoder is mono only
+
+                    let decoded = decode_adpcm(pcm);
+                    let channel = match self.pcm_audio_track.channel {
+                        Channel::Mono => 1,
+                        Channel::Stereo => 2,
+                    };
+                    self.backend.play_wave(channel, self.pcm_audio_track.sampling_freq as _, &decoded);
+                }
+                PCMAudioSequenceEvent::Expression { .. } => {}
+                PCMAudioSequenceEvent::Nop => {}
+                PCMAudioSequenceEvent::Pan { .. } => {}
+                PCMAudioSequenceEvent::PitchBend { .. } => {}
+                PCMAudioSequenceEvent::Volume { .. } => {}
+                PCMAudioSequenceEvent::Exclusive(_) => {}
+            }
+        }
     }
 }
 
 pub async fn play_smaf(smaf: &Smaf<'_>, backend: &dyn AudioBackend) {
     let players = smaf.chunks.iter().filter_map(|x| match x {
         SmafChunk::ScoreTrack(_, x) => Some(ScoreTrackPlayer::new(x, backend).play()),
-        SmafChunk::PCMAudioTrack(_, x) => Some(PcmAudioTrackPlayer::new(x, backend).play()),
+        SmafChunk::PCMAudioTrack(_, x) => Some(PCMAudioTrackPlayer::new(x, backend).play()),
         _ => None,
     });
 

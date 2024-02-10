@@ -1,4 +1,4 @@
-use smaf::{BaseBit, Channel, FormatType, PcmAudioTrackChunk, PcmDataChunk, PcmWaveFormat, ScoreTrackChunk, Smaf, SmafChunk, StreamWaveFormat};
+use smaf::{BaseBit, Channel, FormatType, PCMAudioTrackChunk, PCMDataChunk, PcmWaveFormat, ScoreTrackChunk, Smaf, SmafChunk, StreamWaveFormat};
 
 #[test]
 fn test_bell_load() -> anyhow::Result<()> {
@@ -16,13 +16,13 @@ fn test_bell_load() -> anyhow::Result<()> {
         assert_eq!(x.chunks.len(), 3);
         assert!(matches!(x.chunks[0], ScoreTrackChunk::SetupData(_)));
         assert!(matches!(x.chunks[1], ScoreTrackChunk::SequenceData(_)));
-        assert!(matches!(x.chunks[2], ScoreTrackChunk::PcmData(_)));
+        assert!(matches!(x.chunks[2], ScoreTrackChunk::PCMData(_)));
 
-        if let ScoreTrackChunk::PcmData(x) = &x.chunks[2] {
+        if let ScoreTrackChunk::PCMData(x) = &x.chunks[2] {
             assert_eq!(x.len(), 1);
-            assert!(matches!(x[0], PcmDataChunk::WaveData(1, _)));
+            assert!(matches!(x[0], PCMDataChunk::WaveData(1, _)));
 
-            let smaf::PcmDataChunk::WaveData(_, x) = &x[0];
+            let smaf::PCMDataChunk::WaveData(_, x) = &x[0];
 
             assert_eq!(x.channel, Channel::Mono);
             assert_eq!(x.format, StreamWaveFormat::YamahaADPCM);
@@ -61,9 +61,9 @@ fn test_wave_load() -> anyhow::Result<()> {
 
         assert_eq!(x.chunks.len(), 3);
 
-        assert!(matches!(x.chunks[0], PcmAudioTrackChunk::SeekAndPhraseInfo(_)));
-        assert!(matches!(x.chunks[1], PcmAudioTrackChunk::SequenceData(_)));
-        assert!(matches!(x.chunks[2], PcmAudioTrackChunk::WaveData(1, _)));
+        assert!(matches!(x.chunks[0], PCMAudioTrackChunk::SeekAndPhraseInfo(_)));
+        assert!(matches!(x.chunks[1], PCMAudioTrackChunk::SequenceData(_)));
+        assert!(matches!(x.chunks[2], PCMAudioTrackChunk::WaveData(1, _)));
     } else {
         panic!("Expected PCMAudioTrack chunk");
     }

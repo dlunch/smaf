@@ -14,7 +14,7 @@ use crate::{
     constants::{BaseBit, Channel, PcmWaveFormat},
 };
 
-pub enum SequenceEvent {
+pub enum PCMAudioSequenceEvent {
     WaveMessage { channel: u8, wave_number: u8, gate_time: u32 },
     PitchBend { channel: u8, value: u8 },
     Volume { channel: u8, value: u8 },
@@ -24,12 +24,12 @@ pub enum SequenceEvent {
     Nop,
 }
 
-pub struct HandyPhoneStandardSequenceData {
+pub struct PCMAudioSequenceData {
     pub duration: u32,
-    pub event: SequenceEvent,
+    pub event: PCMAudioSequenceEvent,
 }
 
-impl HandyPhoneStandardSequenceData {
+impl PCMAudioSequenceData {
     pub fn parse(input: &[u8]) -> IResult<&[u8], Vec<Self>> {
         let mut data = input;
         let mut result = Vec::new();
@@ -56,12 +56,12 @@ impl HandyPhoneStandardSequenceData {
 
                         result.push(Self {
                             duration,
-                            event: SequenceEvent::Exclusive(exclusive_data.to_vec()),
+                            event: PCMAudioSequenceEvent::Exclusive(exclusive_data.to_vec()),
                         });
                     } else if second_byte == 0 {
                         result.push(Self {
                             duration,
-                            event: SequenceEvent::Nop,
+                            event: PCMAudioSequenceEvent::Nop,
                         });
                     } else {
                         panic!("Invalid second byte")
@@ -74,7 +74,7 @@ impl HandyPhoneStandardSequenceData {
 
                     result.push(Self {
                         duration,
-                        event: SequenceEvent::WaveMessage {
+                        event: PCMAudioSequenceEvent::WaveMessage {
                             channel,
                             wave_number,
                             gate_time,
@@ -90,7 +90,7 @@ impl HandyPhoneStandardSequenceData {
 
                     result.push(Self {
                         duration,
-                        event: SequenceEvent::PitchBend { channel, value },
+                        event: PCMAudioSequenceEvent::PitchBend { channel, value },
                     })
                 } else if second_byte & 0b0011_0000 == 0b0011_0000 {
                     data = remaining;
@@ -99,7 +99,7 @@ impl HandyPhoneStandardSequenceData {
 
                     result.push(Self {
                         duration,
-                        event: SequenceEvent::PitchBend { channel, value },
+                        event: PCMAudioSequenceEvent::PitchBend { channel, value },
                     })
                 } else if second_byte & 0b0011_0111 == 0b0011_0110 {
                     let (remaining, value) = u8(remaining)?;
@@ -107,7 +107,7 @@ impl HandyPhoneStandardSequenceData {
 
                     result.push(Self {
                         duration,
-                        event: SequenceEvent::Volume { channel, value },
+                        event: PCMAudioSequenceEvent::Volume { channel, value },
                     })
                 } else if second_byte & 0b0011_1010 == 0b0011_1010 {
                     let (remaining, value) = u8(remaining)?;
@@ -115,7 +115,7 @@ impl HandyPhoneStandardSequenceData {
 
                     result.push(Self {
                         duration,
-                        event: SequenceEvent::Pan { channel, value },
+                        event: PCMAudioSequenceEvent::Pan { channel, value },
                     })
                 } else if second_byte & 0b0011_1011 == 0b0011_1011 {
                     let (remaining, value) = u8(remaining)?;
@@ -123,7 +123,7 @@ impl HandyPhoneStandardSequenceData {
 
                     result.push(Self {
                         duration,
-                        event: SequenceEvent::Expression { channel, value },
+                        event: PCMAudioSequenceEvent::Expression { channel, value },
                     })
                 } else if second_byte & 0b0011_0000 == 0b0000_0000 {
                     data = remaining;
@@ -132,7 +132,7 @@ impl HandyPhoneStandardSequenceData {
 
                     result.push(Self {
                         duration,
-                        event: SequenceEvent::Expression { channel, value },
+                        event: PCMAudioSequenceEvent::Expression { channel, value },
                     })
                 } else {
                     panic!("Invalid second byte")
@@ -144,21 +144,21 @@ impl HandyPhoneStandardSequenceData {
     }
 }
 
-pub enum PcmAudioTrackChunk<'a> {
+pub enum PCMAudioTrackChunk<'a> {
     SeekAndPhraseInfo(&'a [u8]),
     SetupData(&'a [u8]),
-    SequenceData(Vec<HandyPhoneStandardSequenceData>),
+    SequenceData(Vec<PCMAudioSequenceData>),
     WaveData(u8, &'a [u8]),
 }
 
-impl<'a> Parse<&'a [u8]> for PcmAudioTrackChunk<'a> {
+impl<'a> Parse<&'a [u8]> for PCMAudioTrackChunk<'a> {
     fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
-                b"AspI" => PcmAudioTrackChunk::SeekAndPhraseInfo(data),
-                b"Atsu" => PcmAudioTrackChunk::SetupData(data),
-                b"Atsq" => PcmAudioTrackChunk::SequenceData(all_consuming(HandyPhoneStandardSequenceData::parse)(data)?.1),
-                &[b'A', b'w', b'a', x] => PcmAudioTrackChunk::WaveData(x, data),
+                b"AspI" => PCMAudioTrackChunk::SeekAndPhraseInfo(data),
+                b"Atsu" => PCMAudioTrackChunk::SetupData(data),
+                b"Atsq" => PCMAudioTrackChunk::SequenceData(all_consuming(PCMAudioSequenceData::parse)(data)?.1),
+                &[b'A', b'w', b'a', x] => PCMAudioTrackChunk::WaveData(x, data),
                 _ => {
                     return Err(nom::Err::Error::<nom::error::Error<&'a [u8]>>(nom::error_position!(
                         data,
@@ -180,13 +180,13 @@ pub struct PCMAudioTrack<'a> {
     pub timebase_d: u8, // in ms
     pub timebase_g: u8, // in ms
 
-    pub chunks: Vec<PcmAudioTrackChunk<'a>>,
+    pub chunks: Vec<PCMAudioTrackChunk<'a>>,
 }
 
 impl<'a> Parse<&'a [u8]> for PCMAudioTrack<'a> {
     fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
         map_res(
-            tuple((u8, u8, be_u16, u8, u8, many0(complete(PcmAudioTrackChunk::parse)))),
+            tuple((u8, u8, be_u16, u8, u8, many0(complete(PCMAudioTrackChunk::parse)))),
             |(format_type, sequence_type, wave_type, timebase_d, timebase_g, chunks)| {
                 let channel = Channel::from(((wave_type & 0b1000_0000_0000_0000) >> 15) as u8);
                 let format = PcmWaveFormat::from(((wave_type & 0b0111_0000_0000_0000) >> 12) as u8);
