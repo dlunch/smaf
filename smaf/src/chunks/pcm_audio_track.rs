@@ -35,6 +35,12 @@ impl PCMAudioSequenceData {
         let mut result = Vec::new();
         loop {
             if data.len() == 4 && data[0] == 0 && data[1] == 0 && data[2] == 0 && data[3] == 0 {
+                // XXX dummy nop message to play until end
+                result.push(Self {
+                    duration: 0,
+                    event: PCMAudioSequenceEvent::Nop,
+                });
+
                 let (remaining, _) = take(4usize)(data)?;
                 data = remaining;
                 break;

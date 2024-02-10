@@ -180,6 +180,9 @@ impl Player for PCMAudioTrackPlayer<'_> {
         let sequence_data = self.sequence_data();
 
         for event in sequence_data {
+            let duration = event.duration * (self.pcm_audio_track.timebase_d as u32);
+            self.backend.sleep(Duration::from_millis(duration as _)).await;
+
             match event.event {
                 PCMAudioSequenceEvent::WaveMessage {
                     channel: _,
