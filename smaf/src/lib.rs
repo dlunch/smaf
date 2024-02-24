@@ -5,7 +5,21 @@ mod chunks;
 mod constants;
 mod smaf;
 
-type SmafResult<T> = anyhow::Result<T>;
+use alloc::string::String;
+use core::result;
+
+#[derive(Debug)]
+pub enum SmafError {
+    ParseError(String),
+}
+
+impl From<SmafError> for anyhow::Error {
+    fn from(e: SmafError) -> Self {
+        anyhow::anyhow!("{:?}", e)
+    }
+}
+
+pub type Result<T> = result::Result<T, SmafError>;
 
 pub use self::{
     chunks::{

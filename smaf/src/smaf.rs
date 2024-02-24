@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{format, vec::Vec};
 
 use nom::{
     bytes::complete::take,
@@ -12,7 +12,7 @@ use nom_derive::{NomBE, Parse};
 
 use crate::{
     chunks::{ContentsInfoChunk, OptionalDataChunk, PCMAudioTrack, ScoreTrack},
-    SmafResult,
+    Result, SmafError,
 };
 
 pub enum SmafChunk<'a> {
@@ -49,7 +49,7 @@ pub struct Smaf<'a> {
 }
 
 impl<'a> Smaf<'a> {
-    pub fn parse(file: &'a [u8]) -> SmafResult<Self> {
-        Ok(Parse::parse(file).map_err(|e| anyhow::anyhow!("{}", e))?.1)
+    pub fn parse(file: &'a [u8]) -> Result<Self> {
+        Ok(Parse::parse(file).map_err(|e| SmafError::ParseError(format!("{}", e)))?.1)
     }
 }
