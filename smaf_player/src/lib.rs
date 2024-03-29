@@ -19,8 +19,8 @@ use smaf::{
 
 use self::adpcm::decode_adpcm;
 
-#[async_trait::async_trait(?Send)]
-pub trait AudioBackend {
+#[async_trait::async_trait]
+pub trait AudioBackend: Sync + Send {
     fn play_wave(&self, channel: u8, sampling_rate: u32, wave_data: &[i16]);
     fn midi_note_on(&self, channel_id: u8, note: u8, velocity: u8);
     fn midi_note_off(&self, channel_id: u8, note: u8, velocity: u8);
@@ -30,7 +30,7 @@ pub trait AudioBackend {
     fn now_millis(&self) -> u64;
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 trait Player {
     async fn play(self);
 }
@@ -69,7 +69,7 @@ impl<'a> ScoreTrackPlayer<'a> {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl<'a> Player for ScoreTrackPlayer<'a> {
     async fn play(self) {
         let sequence_data = self.sequence_data();
@@ -174,7 +174,7 @@ impl<'a> PCMAudioTrackPlayer<'a> {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl Player for PCMAudioTrackPlayer<'_> {
     async fn play(self) {
         let sequence_data = self.sequence_data();
