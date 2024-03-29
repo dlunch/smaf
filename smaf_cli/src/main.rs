@@ -18,6 +18,12 @@ struct AudioBackendImpl {
     sink: Sink,
 }
 
+// XXX wasm32 is single-threaded anyway
+#[cfg(target_arch = "wasm32")]
+unsafe impl Sync for AudioBackendImpl {}
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for AudioBackendImpl {}
+
 impl AudioBackendImpl {
     pub fn new(midi_out: MidiOutputConnection, stream_handle: OutputStreamHandle) -> Self {
         let sink = Sink::try_new(&stream_handle).unwrap();
