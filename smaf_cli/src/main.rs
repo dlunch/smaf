@@ -11,7 +11,7 @@ use rodio::{buffer::SamplesBuffer, OutputStream, OutputStreamHandle, Sink};
 use tokio::time::sleep;
 
 use smaf::Smaf;
-use smaf_player::{play_smaf, AudioBackend};
+use smaf_player::{AudioBackend, SmafPlayer};
 
 struct AudioBackendImpl {
     midi_out: Mutex<MidiOutputConnection>,
@@ -85,5 +85,7 @@ pub async fn main() {
 
     let (_output_stream, stream_handle) = OutputStream::try_default().unwrap();
 
-    play_smaf(&smaf, &AudioBackendImpl::new(midi_out, stream_handle)).await
+    let player = SmafPlayer::new();
+
+    player.play(&smaf, &AudioBackendImpl::new(midi_out, stream_handle)).await
 }

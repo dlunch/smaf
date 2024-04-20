@@ -4,10 +4,14 @@ extern crate alloc;
 use alloc::{
     boxed::Box,
     collections::{btree_map::Entry, BTreeMap},
+    sync::Arc,
     vec,
     vec::Vec,
 };
-use core::time::Duration;
+use core::{
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
 
 mod adpcm;
 
@@ -32,7 +36,7 @@ pub trait AudioBackend: Sync + Send {
 
 #[async_trait::async_trait]
 trait Player {
-    async fn play(self);
+    async fn play(self, stopped: Arc<AtomicBool>);
 }
 
 struct ScoreTrackPlayer<'a> {
@@ -71,7 +75,7 @@ impl<'a> ScoreTrackPlayer<'a> {
 
 #[async_trait::async_trait]
 impl<'a> Player for ScoreTrackPlayer<'a> {
-    async fn play(self) {
+    async fn play(self, stopped: Arc<AtomicBool>) {
         let sequence_data = self.sequence_data();
 
         let mut now = self.backend.now_millis();
@@ -96,6 +100,10 @@ impl<'a> Player for ScoreTrackPlayer<'a> {
                 self.backend.sleep(Duration::from_millis((next_event_start - now) as _)).await;
             }
             now = self.backend.now_millis();
+
+            if stopped.load(Ordering::Relaxed) {
+                return;
+            }
 
             match event.event {
                 ScoreTrackSequenceEvent::NoteMessage {
@@ -176,12 +184,16 @@ impl<'a> PCMAudioTrackPlayer<'a> {
 
 #[async_trait::async_trait]
 impl Player for PCMAudioTrackPlayer<'_> {
-    async fn play(self) {
+    async fn play(self, stopped: Arc<AtomicBool>) {
         let sequence_data = self.sequence_data();
 
         for event in sequence_data {
             let duration = event.duration * (self.pcm_audio_track.timebase_d as u32);
             self.backend.sleep(Duration::from_millis(duration as _)).await;
+
+            if stopped.load(Ordering::Relaxed) {
+                return;
+            }
 
             match event.event {
                 PCMAudioSequenceEvent::WaveMessage {
@@ -211,12 +223,29 @@ impl Player for PCMAudioTrackPlayer<'_> {
     }
 }
 
-pub async fn play_smaf(smaf: &Smaf<'_>, backend: &dyn AudioBackend) {
-    let players = smaf.chunks.iter().filter_map(|x| match x {
-        SmafChunk::ScoreTrack(_, x) => Some(ScoreTrackPlayer::new(x, backend).play()),
-        SmafChunk::PCMAudioTrack(_, x) => Some(PCMAudioTrackPlayer::new(x, backend).play()),
-        _ => None,
-    });
+#[derive(Default, Clone)]
+pub struct SmafPlayer {
+    stopped: Arc<AtomicBool>,
+}
 
-    join_all(players).await;
+impl SmafPlayer {
+    pub fn new() -> Self {
+        Self {
+            stopped: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    pub fn stop(&self) {
+        self.stopped.store(true, Ordering::Relaxed);
+    }
+
+    pub async fn play(&self, smaf: &Smaf<'_>, backend: &dyn AudioBackend) {
+        let players = smaf.chunks.iter().filter_map(|x| match x {
+            SmafChunk::ScoreTrack(_, x) => Some(ScoreTrackPlayer::new(x, backend).play(self.stopped.clone())),
+            SmafChunk::PCMAudioTrack(_, x) => Some(PCMAudioTrackPlayer::new(x, backend).play(self.stopped.clone())),
+            _ => None,
+        });
+
+        join_all(players).await;
+    }
 }
