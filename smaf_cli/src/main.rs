@@ -10,7 +10,6 @@ use midir::{MidiOutput, MidiOutputConnection};
 use rodio::{buffer::SamplesBuffer, OutputStream, OutputStreamHandle, Sink};
 use tokio::time::sleep;
 
-use smaf::Smaf;
 use smaf_player::{AudioBackend, SmafPlayer};
 
 struct AudioBackendImpl {
@@ -76,8 +75,6 @@ pub async fn main() {
     let file = args().nth(1).expect("No file given");
     let data = fs::read(file).expect("Failed to read file");
 
-    let smaf = Smaf::parse(&data).expect("Failed to parse file");
-
     let midi_out = MidiOutput::new("smaf_cli").unwrap();
     let midi_ports = midi_out.ports();
     let out_port = midi_ports.last().unwrap();
@@ -85,7 +82,7 @@ pub async fn main() {
 
     let (_output_stream, stream_handle) = OutputStream::try_default().unwrap();
 
-    let player = SmafPlayer::new();
+    let player = SmafPlayer::new(data);
 
-    player.play(&smaf, &AudioBackendImpl::new(midi_out, stream_handle)).await
+    player.play(&AudioBackendImpl::new(midi_out, stream_handle)).await
 }

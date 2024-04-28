@@ -225,12 +225,14 @@ impl Player for PCMAudioTrackPlayer<'_> {
 
 #[derive(Default, Clone)]
 pub struct SmafPlayer {
+    raw: Vec<u8>,
     stopped: Arc<AtomicBool>,
 }
 
 impl SmafPlayer {
-    pub fn new() -> Self {
+    pub fn new(raw: Vec<u8>) -> Self {
         Self {
+            raw,
             stopped: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -239,7 +241,9 @@ impl SmafPlayer {
         self.stopped.store(true, Ordering::Relaxed);
     }
 
-    pub async fn play(&self, smaf: &Smaf<'_>, backend: &dyn AudioBackend) {
+    pub async fn play(&self, backend: &dyn AudioBackend) {
+        let smaf = Smaf::parse(&self.raw).unwrap();
+
         let players = smaf.chunks.iter().filter_map(|x| match x {
             SmafChunk::ScoreTrack(_, x) => Some(ScoreTrackPlayer::new(x, backend).play(self.stopped.clone())),
             SmafChunk::PCMAudioTrack(_, x) => Some(PCMAudioTrackPlayer::new(x, backend).play(self.stopped.clone())),
