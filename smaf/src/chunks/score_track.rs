@@ -60,18 +60,24 @@ pub enum ScoreTrackSequenceEvent {
     NoteMessage { channel: u8, note: u8, velocity: u8, gate_time: u32 },
     ControlChange { channel: u8, control: u8, value: u8 },
     ProgramChange { channel: u8, program: u8 },
-    PitchBend { channel: u8, value_lsb: u8, value_msb: u8 },
+    BankSelect { channel: u8, value: u8 },
+    OctaveShift { channel: u8, value: u8 },
+    Modulation { channel: u8, value: u8 },
+    PitchBend { channel: u8, value: u16 },
+    Volume { channel: u8, value: u8 },
+    Pan { channel: u8, value: u8 },
+    Expression { channel: u8, value: u8 },
     Exclusive(Vec<u8>),
     Nop,
 }
 
-pub struct MobileStandardSequenceData {
+pub struct SequenceData {
     pub duration: u32,
     pub event: ScoreTrackSequenceEvent,
 }
 
-impl MobileStandardSequenceData {
-    pub fn parse(input: &[u8]) -> IResult<&[u8], Vec<Self>> {
+impl SequenceData {
+    pub fn parse_mobile(input: &[u8]) -> IResult<&[u8], Vec<Self>> {
         let mut data = input;
         let mut result = Vec::new();
         loop {
@@ -134,8 +140,7 @@ impl MobileStandardSequenceData {
 
                     ScoreTrackSequenceEvent::PitchBend {
                         channel,
-                        value_lsb,
-                        value_msb,
+                        value: (value_msb as u16) << 8 | value_lsb as u16,
                     }
                 }
                 0xF0 => {
@@ -168,7 +173,173 @@ impl MobileStandardSequenceData {
                         panic!("Invalid status byte");
                     }
                 }
-                _ => panic!("Invalid status byte"),
+                _ => panic!("Invalid status byte {}", status_byte),
+            };
+
+            result.push(Self { duration, event })
+        }
+
+        Ok((data, result))
+    }
+
+    pub fn parse_handy(input: &[u8]) -> IResult<&[u8], Vec<Self>> {
+        let mut data = input;
+        let mut result = Vec::new();
+        loop {
+            if data.is_empty() {
+                break;
+            }
+            if data[0] == 0 && data[1] == 0 && data[2] == 0 && data[3] == 0 {
+                // end of stream
+                data = &data[4..];
+                break;
+            }
+
+            let (remaining, duration) = parse_variable_number(data)?;
+            let (remaining, status_byte) = u8(remaining)?;
+
+            let event = match status_byte {
+                0x01..=0xFE => {
+                    // note
+                    let channel = (status_byte & 0b11000000) >> 6;
+                    let octave = (status_byte & 0b00110000) >> 4;
+                    let note_number = (status_byte & 0b00001111) + octave * 12;
+
+                    let (remaining, gate_time) = parse_variable_number(remaining)?;
+                    data = remaining;
+
+                    ScoreTrackSequenceEvent::NoteMessage {
+                        channel,
+                        note: note_number,
+                        velocity: 64,
+                        gate_time,
+                    }
+                }
+                0x00 => {
+                    let (remaining, next_byte) = u8(remaining)?;
+                    data = remaining;
+
+                    if next_byte & 0b00111111 == 0b00110000 {
+                        // program change
+
+                        let (remaining, value) = u8(remaining)?;
+                        data = remaining;
+
+                        ScoreTrackSequenceEvent::ProgramChange {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            program: value,
+                        }
+                    } else if next_byte & 0b00111111 == 0b00110001 {
+                        // bank select
+
+                        let (remaining, value) = u8(remaining)?;
+                        data = remaining;
+
+                        ScoreTrackSequenceEvent::BankSelect {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            value,
+                        }
+                    } else if next_byte & 0b00111111 == 0b00110010 {
+                        // octave shift
+
+                        let (remaining, value) = u8(remaining)?;
+                        data = remaining;
+
+                        ScoreTrackSequenceEvent::OctaveShift {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            value,
+                        }
+                    } else if next_byte & 0b00111111 == 0b00110011 {
+                        // modulation
+
+                        let (remaining, value) = u8(remaining)?;
+                        data = remaining;
+
+                        ScoreTrackSequenceEvent::Modulation {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            value,
+                        }
+                    } else if next_byte & 0b00111111 == 0b00111000 {
+                        // pitch bend
+
+                        let (remaining, value) = u8(remaining)?;
+                        data = remaining;
+
+                        ScoreTrackSequenceEvent::PitchBend {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            value: value as _,
+                        }
+                    } else if next_byte & 0b00110000 == 0b00010000 {
+                        // pitch bend short
+
+                        let value = next_byte & 0b00001111;
+
+                        ScoreTrackSequenceEvent::PitchBend {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            value: value as _,
+                        }
+                    } else if next_byte & 0b00111111 == 0b00110111 {
+                        // volume
+
+                        let (remaining, value) = u8(remaining)?;
+                        data = remaining;
+
+                        ScoreTrackSequenceEvent::Volume {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            value,
+                        }
+                    } else if next_byte & 0b00111111 == 0b00111010 {
+                        // pan
+
+                        let (remaining, value) = u8(remaining)?;
+                        data = remaining;
+
+                        ScoreTrackSequenceEvent::Pan {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            value,
+                        }
+                    } else if next_byte & 0b00111111 == 0b00111011 {
+                        // expression
+
+                        let (remaining, value) = u8(remaining)?;
+                        data = remaining;
+
+                        ScoreTrackSequenceEvent::Expression {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            value,
+                        }
+                    } else if next_byte & 0b00110000 == 0b0000_0000 {
+                        // expression short
+
+                        let value = next_byte & 0b00001111;
+
+                        ScoreTrackSequenceEvent::Expression {
+                            channel: (next_byte & 0b11000000) >> 6,
+                            value,
+                        }
+                    } else {
+                        panic!("Invalid status byte {}, {}", status_byte, next_byte);
+                    }
+                }
+                0xFF => {
+                    let (remaining, next_byte) = u8(remaining)?;
+                    data = remaining;
+
+                    if next_byte == 0b1111_0000 {
+                        // exclusive message
+                        let (remaining, length) = u8(remaining)?;
+                        let (remaining, exclusive_data) = take(length)(remaining)?;
+                        data = remaining;
+
+                        ScoreTrackSequenceEvent::Exclusive(exclusive_data.to_vec())
+                    } else if next_byte == 0 {
+                        // nop
+
+                        ScoreTrackSequenceEvent::Nop
+                    } else {
+                        panic!("Invalid status byte");
+                    }
+                }
             };
 
             result.push(Self { duration, event })
@@ -181,28 +352,50 @@ impl MobileStandardSequenceData {
 #[allow(clippy::enum_variant_names)]
 pub enum ScoreTrackChunk<'a> {
     SetupData(&'a [u8]),
-    SequenceData(Vec<MobileStandardSequenceData>),
+    SequenceData(Vec<SequenceData>),
     PCMData(Vec<PCMDataChunk<'a>>),
+    SeekAndPhraseInfo(&'a [u8]),
 }
 
-impl<'a> Parse<&'a [u8]> for ScoreTrackChunk<'a> {
-    fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
+impl<'a> ScoreTrackChunk<'a> {
+    fn parse(format_type: FormatType, data: &'a [u8]) -> IResult<&[u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
                 b"Mtsu" => ScoreTrackChunk::SetupData(data),
-                b"Mtsq" => ScoreTrackChunk::SequenceData(all_consuming(MobileStandardSequenceData::parse)(data)?.1),
+                b"Mtsq" => {
+                    let parser = match format_type {
+                        FormatType::MobileStandardNoCompress => SequenceData::parse_mobile,
+                        FormatType::HandyPhoneStandard => SequenceData::parse_handy,
+                        _ => panic!("Unsupported format type {:?}", format_type),
+                    };
+                    ScoreTrackChunk::SequenceData(all_consuming(parser)(data)?.1)
+                }
                 b"Mtsp" => ScoreTrackChunk::PCMData(all_consuming(many0(complete(PCMDataChunk::parse)))(data)?.1),
+                b"MspI" => ScoreTrackChunk::SeekAndPhraseInfo(data),
                 _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
             })
         })(data)
     }
 }
 
+#[repr(u8)]
 pub enum ChannelType {
     NoCare = 0,
     Melody = 1,
     NoMelody = 2,
     Rhythm = 3,
+}
+
+impl ChannelType {
+    pub fn from_u8(raw: u8) -> Self {
+        match raw {
+            0 => ChannelType::NoCare,
+            1 => ChannelType::Melody,
+            2 => ChannelType::NoMelody,
+            3 => ChannelType::Rhythm,
+            _ => panic!("Invalid channel type"),
+        }
+    }
 }
 
 pub struct ChannelStatus {
@@ -213,21 +406,37 @@ pub struct ChannelStatus {
 }
 
 impl ChannelStatus {
-    pub fn parse(raw: u8) -> Self {
+    pub fn parse_mobile(raw: u8) -> Self {
         let kcs = (raw & 0b1100_0000) >> 6;
         let vs = (raw & 0b0010_0000) >> 5;
         let led = (raw & 0b0001_0000) >> 4;
         let channel_type = raw & 0b0000_0011;
 
-        let channel_type = match channel_type {
-            0 => ChannelType::NoCare,
-            1 => ChannelType::Melody,
-            2 => ChannelType::NoMelody,
-            3 => ChannelType::Rhythm,
-            _ => panic!("Invalid channel type"),
-        };
+        let channel_type = ChannelType::from_u8(channel_type);
 
         Self { kcs, vs, led, channel_type }
+    }
+
+    pub fn parse_handy(raw: u16) -> Vec<Self> {
+        let mut result = Vec::new();
+        for i in 0..4 {
+            let data = (raw >> (i * 4)) & 0b1111;
+
+            let kcs = (data & 0b1000) >> 3;
+            let vs = (data & 0b0100) >> 2;
+            let channel_type = data & 0b0011;
+
+            let channel_type = ChannelType::from_u8(channel_type as _);
+
+            result.push(Self {
+                kcs: kcs as _,
+                vs: vs as _,
+                led: 0,
+                channel_type,
+            });
+        }
+
+        result
     }
 }
 
@@ -243,13 +452,14 @@ pub struct ScoreTrack<'a> {
     pub timebase_g: u8,
     #[nom(Parse = "|x| parse_channel_status(format_type, x)")]
     pub channel_status: Vec<ChannelStatus>,
-    #[nom(Parse = "many0(complete(ScoreTrackChunk::parse))")]
+    #[nom(Parse = "|x| many0(complete(|y| ScoreTrackChunk::parse(format_type, y)))(x)")]
     pub chunks: Vec<ScoreTrackChunk<'a>>,
 }
 
 fn parse_channel_status(format_type: FormatType, data: &[u8]) -> IResult<&[u8], Vec<ChannelStatus>> {
-    match format_type {
-        FormatType::MobileStandardNoCompress => map(take(16usize), |x: &[u8]| x.iter().map(|&x| ChannelStatus::parse(x)).collect())(data),
-        _ => panic!("Unsupported format type"),
-    }
+    Ok(match format_type {
+        FormatType::MobileStandardNoCompress => map(take(16usize), |x: &[u8]| x.iter().map(|&x| ChannelStatus::parse_mobile(x)).collect())(data)?,
+        FormatType::HandyPhoneStandard => map(be_u16, ChannelStatus::parse_handy)(data)?,
+        _ => panic!("Unsupported format type {:?}", format_type),
+    })
 }

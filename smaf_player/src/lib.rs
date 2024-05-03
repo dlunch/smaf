@@ -17,8 +17,8 @@ mod adpcm;
 
 use futures::future::join_all;
 use smaf::{
-    Channel, MobileStandardSequenceData, PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrack, PCMAudioTrackChunk, PCMDataChunk, ScoreTrack,
-    ScoreTrackChunk, ScoreTrackSequenceEvent, Smaf, SmafChunk, WaveData,
+    Channel, PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrack, PCMAudioTrackChunk, PCMDataChunk, ScoreTrack, ScoreTrackChunk,
+    ScoreTrackSequenceEvent, SequenceData, Smaf, SmafChunk, WaveData,
 };
 
 use self::adpcm::decode_adpcm;
@@ -49,7 +49,7 @@ impl<'a> ScoreTrackPlayer<'a> {
         Self { score_track, backend }
     }
 
-    fn sequence_data(&self) -> &[MobileStandardSequenceData] {
+    fn sequence_data(&self) -> &[SequenceData] {
         for chunk in self.score_track.chunks.iter() {
             if let ScoreTrackChunk::SequenceData(x) = chunk {
                 return x;
@@ -145,6 +145,12 @@ impl<'a> Player for ScoreTrackPlayer<'a> {
                 ScoreTrackSequenceEvent::Exclusive(_) => {}
                 ScoreTrackSequenceEvent::Nop => {}
                 ScoreTrackSequenceEvent::PitchBend { .. } => {}
+                ScoreTrackSequenceEvent::Volume { .. } => {}
+                ScoreTrackSequenceEvent::Pan { .. } => {}
+                ScoreTrackSequenceEvent::Expression { .. } => {}
+                ScoreTrackSequenceEvent::OctaveShift { .. } => {}
+                ScoreTrackSequenceEvent::Modulation { .. } => {}
+                ScoreTrackSequenceEvent::BankSelect { .. } => {}
             }
         }
     }

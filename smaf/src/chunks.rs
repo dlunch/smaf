@@ -38,5 +38,5 @@ pub use self::{
     content_info::ContentsInfoChunk,
     optional_data::OptionalDataChunk,
     pcm_audio_track::{PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrack, PCMAudioTrackChunk},
-    score_track::{MobileStandardSequenceData, PCMDataChunk, ScoreTrack, ScoreTrackChunk, ScoreTrackSequenceEvent, WaveData},
+    score_track::{PCMDataChunk, ScoreTrack, ScoreTrackChunk, ScoreTrackSequenceEvent, SequenceData, WaveData},
 };
