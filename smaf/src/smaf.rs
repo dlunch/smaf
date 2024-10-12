@@ -23,7 +23,7 @@ pub enum SmafChunk<'a> {
 }
 
 impl<'a> Parse<&'a [u8]> for SmafChunk<'a> {
-    fn parse(data: &'a [u8]) -> IResult<&'_ [u8], Self> {
+    fn parse(data: &'a [u8]) -> IResult<&'a [u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
                 b"CNTI" => Self::ContentsInfo(all_consuming(ContentsInfoChunk::parse)(data)?.1),

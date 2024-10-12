@@ -24,7 +24,7 @@ pub struct WaveData<'a> {
 }
 
 impl<'a> Parse<&'a [u8]> for WaveData<'a> {
-    fn parse(data: &'a [u8]) -> IResult<&'_ [u8], Self> {
+    fn parse(data: &'a [u8]) -> IResult<&'a [u8], Self> {
         map_res(tuple((u8, be_u16, rest)), |(wave_type, sampling_freq, wave_data)| {
             let channel = Channel::from((wave_type & 0b10000000) >> 7);
             let format = StreamWaveFormat::from((wave_type & 0b01110000) >> 4);
@@ -46,7 +46,7 @@ pub enum PCMDataChunk<'a> {
 }
 
 impl<'a> Parse<&'a [u8]> for PCMDataChunk<'a> {
-    fn parse(data: &'a [u8]) -> IResult<&'_ [u8], Self> {
+    fn parse(data: &'a [u8]) -> IResult<&'a [u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
                 &[b'M', b'w', b'a', x] => Self::WaveData(x, all_consuming(WaveData::parse)(data)?.1),
@@ -360,7 +360,7 @@ pub enum ScoreTrackChunk<'a> {
 }
 
 impl<'a> ScoreTrackChunk<'a> {
-    fn parse(format_type: FormatType, data: &'a [u8]) -> IResult<&'_ [u8], Self> {
+    fn parse(format_type: FormatType, data: &'a [u8]) -> IResult<&'a [u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
                 b"Mtsu" => ScoreTrackChunk::SetupData(data),
