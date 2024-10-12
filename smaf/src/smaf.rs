@@ -38,7 +38,6 @@ impl<'a> Parse<&'a [u8]> for SmafChunk<'a> {
 
 #[derive(NomBE)]
 #[nom(Complete)]
-#[nom(Exact)]
 pub struct Smaf<'a> {
     #[nom(Tag(b"MMMD"))]
     pub magic: &'a [u8],

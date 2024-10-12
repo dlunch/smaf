@@ -318,7 +318,9 @@ impl SequenceData {
                             value,
                         }
                     } else {
-                        panic!("Invalid status byte {}, {}", status_byte, next_byte);
+                        // TODO Invalid status byte warning
+
+                        continue;
                     }
                 }
                 0xFF => {
