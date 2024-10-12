@@ -158,7 +158,7 @@ pub enum PCMAudioTrackChunk<'a> {
 }
 
 impl<'a> Parse<&'a [u8]> for PCMAudioTrackChunk<'a> {
-    fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
+    fn parse(data: &'a [u8]) -> IResult<&'_ [u8], Self> {
         map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
                 b"AspI" => PCMAudioTrackChunk::SeekAndPhraseInfo(data),
@@ -190,7 +190,7 @@ pub struct PCMAudioTrack<'a> {
 }
 
 impl<'a> Parse<&'a [u8]> for PCMAudioTrack<'a> {
-    fn parse(data: &'a [u8]) -> IResult<&[u8], Self> {
+    fn parse(data: &'a [u8]) -> IResult<&'_ [u8], Self> {
         map_res(
             tuple((u8, u8, be_u16, u8, u8, many0(complete(PCMAudioTrackChunk::parse)))),
             |(format_type, sequence_type, wave_type, timebase_d, timebase_g, chunks)| {
