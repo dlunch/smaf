@@ -74,7 +74,7 @@ impl<'a> ScoreTrackPlayer<'a> {
 }
 
 #[async_trait::async_trait]
-impl<'a> Player for ScoreTrackPlayer<'a> {
+impl Player for ScoreTrackPlayer<'_> {
     async fn play(self, stopped: Arc<AtomicBool>) {
         let sequence_data = self.sequence_data();
 
