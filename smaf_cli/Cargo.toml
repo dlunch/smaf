@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 async-trait = { version = "^0.1", default-features = false }
 midir = { version = "^0.10", default-features = false }
-rodio = { version = "^0.19", default-features = false }
+rodio = { version = "^0.20", default-features = false }
 tokio = { version = "^1.0", features = ["rt", "macros", "time"], default-features = false }
 
 smaf = { path = "../smaf" }
