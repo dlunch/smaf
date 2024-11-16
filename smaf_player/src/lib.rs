@@ -58,18 +58,18 @@ impl<'a> ScoreTrackPlayer<'a> {
         panic!("No sequence data found")
     }
 
-    fn pcm_data(&self, channel: u8) -> &WaveData {
+    fn pcm_data(&self, channel: u8) -> Option<&WaveData> {
         for chunk in self.score_track.chunks.iter() {
             if let ScoreTrackChunk::PCMData(x) = chunk {
                 for pcm_chunk in x {
                     let PCMDataChunk::WaveData(x, y) = pcm_chunk;
                     if *x == channel {
-                        return y;
+                        return Some(y);
                     }
                 }
             }
         }
-        panic!("No pcm data found")
+        None
     }
 }
 
@@ -115,6 +115,10 @@ impl Player for ScoreTrackPlayer<'_> {
                     // play wave on note 0??
                     if note == 0 {
                         let pcm = self.pcm_data(channel + 1);
+                        if pcm.is_none() {
+                            continue;
+                        }
+                        let pcm = pcm.unwrap();
                         assert!(pcm.base_bit == smaf::BaseBit::Bit4); // current decoder is 4bit only
                         assert!(pcm.channel == Channel::Mono); // current decoder is mono only
 
