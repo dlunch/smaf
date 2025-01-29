@@ -140,7 +140,7 @@ impl SequenceData {
 
                     ScoreTrackSequenceEvent::PitchBend {
                         channel,
-                        value: (value_msb as u16) << 8 | value_lsb as u16,
+                        value: ((value_msb as u16) << 8) | value_lsb as u16,
                     }
                 }
                 0xF0 => {
