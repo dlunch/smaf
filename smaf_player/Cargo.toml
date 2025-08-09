@@ -4,7 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-async-trait = { version = "^0.1", default-features = false }
-futures = { version = "^0.3", features = ["alloc"], default-features = false }
-
 smaf = { path = "../smaf" }

@@ -49,6 +49,6 @@ pub struct Smaf<'a> {
 
 impl<'a> Smaf<'a> {
     pub fn parse(file: &'a [u8]) -> Result<Self> {
-        Ok(Parse::parse(file).map_err(|e| SmafError::ParseError(format!("{}", e)))?.1)
+        Ok(Parse::parse(file).map_err(|e| SmafError::ParseError(format!("{e}")))?.1)
     }
 }
