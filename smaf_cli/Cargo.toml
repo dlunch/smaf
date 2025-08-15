@@ -7,7 +7,7 @@ edition = "2021"
 async-trait = { version = "^0.1", default-features = false }
 midir = { version = "^0.10", default-features = false }
 rodio = { version = "^0.20", default-features = false }
-tokio = { version = "^1.44", features = ["rt", "macros", "time"], default-features = false }
+tokio = { version = "^1.47", features = ["rt", "macros", "time"], default-features = false }
 
 smaf = { path = "../smaf" }
 smaf_player = { path = "../smaf_player" }
