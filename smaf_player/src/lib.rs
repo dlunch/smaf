@@ -58,21 +58,21 @@ fn parse_score_track_events(track: &ScoreTrack) -> Vec<(usize, SmafEvent)> {
             } => {
                 // play wave on note 0??
                 if note == 0 {
-                    let pcm = track
-                        .chunks
-                        .iter()
-                        .find_map(|x| {
-                            if let ScoreTrackChunk::PCMData(x) = x {
-                                for pcm_chunk in x {
-                                    let PCMDataChunk::WaveData(x, y) = pcm_chunk;
-                                    if *x == channel + 1 {
-                                        return Some(y);
-                                    }
+                    let pcm = track.chunks.iter().find_map(|x| {
+                        if let ScoreTrackChunk::PCMData(x) = x {
+                            for pcm_chunk in x {
+                                let PCMDataChunk::WaveData(x, y) = pcm_chunk;
+                                if *x == channel + 1 {
+                                    return Some(y);
                                 }
                             }
-                            None
-                        })
-                        .unwrap();
+                        }
+                        None
+                    });
+                    if pcm.is_none() {
+                        continue;
+                    }
+                    let pcm = pcm.unwrap();
 
                     assert!(pcm.base_bit == smaf::BaseBit::Bit4); // current decoder is 4bit only
                     assert!(pcm.channel == Channel::Mono); // current decoder is mono only
