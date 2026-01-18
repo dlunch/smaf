@@ -89,7 +89,7 @@ impl PCMAudioSequenceData {
                 }
             } else {
                 let (remaining, second_byte) = u8(data)?;
-                let channel = second_byte & 0b1100_0000;
+                let channel = (second_byte & 0b1100_0000) >> 6;
                 if second_byte & 0b0011_1100 == 0b0011_0100 {
                     let (remaining, value) = u8(remaining)?;
                     data = remaining;
@@ -197,7 +197,7 @@ impl<'a> Parse<&'a [u8]> for PCMAudioTrack<'a> {
                 let channel = Channel::from(((wave_type & 0b1000_0000_0000_0000) >> 15) as u8);
                 let format = PcmWaveFormat::from(((wave_type & 0b0111_0000_0000_0000) >> 12) as u8);
                 let sampling_freq = (wave_type & 0b0000_1111_0000_0000) >> 8;
-                let base_bit = BaseBit::from((wave_type & 0b0000_0000_1111_0000) as u8);
+                let base_bit = BaseBit::from(((wave_type & 0b0000_0000_1111_0000) >> 4) as u8);
 
                 let sampling_freq = match sampling_freq {
                     0 => 4000,

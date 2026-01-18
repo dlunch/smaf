@@ -132,7 +132,7 @@ impl SequenceData {
                     ScoreTrackSequenceEvent::ProgramChange { channel, program }
                 }
                 0xE0..=0xEF => {
-                    // PitchBend
+                    // PitchBend (14-bit value: MSB << 7 | LSB)
                     let channel = status_byte & 0b0000_1111;
                     let (remaining, value_lsb) = u8(remaining)?;
                     let (remaining, value_msb) = u8(remaining)?;
@@ -140,7 +140,7 @@ impl SequenceData {
 
                     ScoreTrackSequenceEvent::PitchBend {
                         channel,
-                        value: ((value_msb as u16) << 8) | value_lsb as u16,
+                        value: ((value_msb as u16 & 0x7F) << 7) | (value_lsb as u16 & 0x7F),
                     }
                 }
                 0xF0 => {
@@ -201,9 +201,13 @@ impl SequenceData {
             let event = match status_byte {
                 0x01..=0xFE => {
                     // note
+                    // Voice: 0x1=C#, 0x2=D, ..., 0x9=A, 0xA=A#, 0xB=B, 0xC=C
+                    // Octave 2 (Mid High), Voice 9 (A) = MIDI 69 (A440)
+                    // So base offset = 69 - 9 - 2*12 = 36
                     let channel = (status_byte & 0b11000000) >> 6;
                     let octave = (status_byte & 0b00110000) >> 4;
-                    let note_number = (status_byte & 0b00001111) + octave * 12;
+                    let voice = status_byte & 0b00001111;
+                    let note_number = 36 + octave * 12 + voice;
 
                     let (remaining, gate_time) = parse_variable_number(remaining)?;
                     data = remaining;
@@ -420,9 +424,14 @@ impl ChannelStatus {
     }
 
     pub fn parse_handy(raw: u16) -> Vec<Self> {
+        // Spec: Data#0 upper 4 bits = Ch0, lower 4 bits = Ch1
+        //       Data#1 upper 4 bits = Ch2, lower 4 bits = Ch3
+        // be_u16 reads as: (Data#0 << 8) | Data#1
+        // So bits 15-12 = Ch0, 11-8 = Ch1, 7-4 = Ch2, 3-0 = Ch3
         let mut result = Vec::new();
         for i in 0..4 {
-            let data = (raw >> (i * 4)) & 0b1111;
+            let shift = (3 - i) * 4; // Ch0=12, Ch1=8, Ch2=4, Ch3=0
+            let data = (raw >> shift) & 0b1111;
 
             let kcs = (data & 0b1000) >> 3;
             let vs = (data & 0b0100) >> 2;
