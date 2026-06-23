@@ -11,15 +11,17 @@ use nom::{
 use nom_derive::{NomBE, Parse};
 
 use crate::{
-    chunks::{ContentsInfoChunk, OptionalDataChunk, PCMAudioTrack, ScoreTrack},
+    chunks::{ContentsInfoChunk, OptionalDataChunk, PCMAudioTrack, ScoreTrack, SequenceData},
     Result, SmafError,
 };
 
 pub enum SmafChunk<'a> {
-    ContentsInfo(ContentsInfoChunk<'a>),  // CNTI
-    OptionalData(OptionalDataChunk<'a>),  // OPDA
-    ScoreTrack(u8, ScoreTrack<'a>),       // MTRx
-    PCMAudioTrack(u8, PCMAudioTrack<'a>), // ATRx
+    ContentsInfo(ContentsInfoChunk<'a>),     // CNTI
+    OptionalData(OptionalDataChunk<'a>),     // OPDA
+    ScoreTrack(u8, ScoreTrack<'a>),          // MTRx
+    PCMAudioTrack(u8, PCMAudioTrack<'a>),    // ATRx
+    SoftbankSequenceData(Vec<SequenceData>), // SEQU
+    Unknown(&'a [u8], &'a [u8]),             // unrecognized chunk (tag, data)
 }
 
 impl<'a> Parse<&'a [u8]> for SmafChunk<'a> {
@@ -30,7 +32,8 @@ impl<'a> Parse<&'a [u8]> for SmafChunk<'a> {
                 b"OPDA" => Self::OptionalData(all_consuming(OptionalDataChunk::parse)(data)?.1),
                 &[b'M', b'T', b'R', x] => Self::ScoreTrack(x, all_consuming(ScoreTrack::parse)(data)?.1),
                 &[b'A', b'T', b'R', x] => Self::PCMAudioTrack(x, all_consuming(PCMAudioTrack::parse)(data)?.1),
-                _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
+                b"SEQU" => Self::SoftbankSequenceData(all_consuming(SequenceData::parse_softbank)(data)?.1),
+                _ => Self::Unknown(tag, data),
             })
         })(data)
     }

@@ -14,6 +14,9 @@ use crate::{
     constants::{BaseBit, Channel, PcmWaveFormat},
 };
 
+const SHORT_PITCH_BEND_VALUES: [u8; 15] = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0x48, 0x50, 0x58, 0x60, 0x68, 0x70];
+const SHORT_EXPRESSION_VALUES: [u8; 15] = [0x00, 0x00, 0x1f, 0x27, 0x2f, 0x37, 0x3f, 0x47, 0x4f, 0x57, 0x5f, 0x67, 0x6f, 0x77, 0x7f];
+
 pub enum PCMAudioSequenceEvent {
     WaveMessage { channel: u8, wave_number: u8, gate_time: u32 },
     PitchBend { channel: u8, value: u8 },
@@ -90,7 +93,29 @@ impl PCMAudioSequenceData {
             } else {
                 let (remaining, second_byte) = u8(data)?;
                 let channel = (second_byte & 0b1100_0000) >> 6;
-                if second_byte & 0b0011_1100 == 0b0011_0100 {
+                let event_type = second_byte & 0b0011_1111;
+
+                if (0x01..=0x0e).contains(&event_type) {
+                    data = remaining;
+
+                    result.push(Self {
+                        duration,
+                        event: PCMAudioSequenceEvent::Expression {
+                            channel,
+                            value: SHORT_EXPRESSION_VALUES[event_type as usize],
+                        },
+                    })
+                } else if (0x11..=0x1e).contains(&event_type) {
+                    data = remaining;
+
+                    result.push(Self {
+                        duration,
+                        event: PCMAudioSequenceEvent::PitchBend {
+                            channel,
+                            value: SHORT_PITCH_BEND_VALUES[(event_type - 0x10) as usize],
+                        },
+                    })
+                } else if event_type == 0x34 {
                     let (remaining, value) = u8(remaining)?;
                     data = remaining;
 
@@ -98,16 +123,15 @@ impl PCMAudioSequenceData {
                         duration,
                         event: PCMAudioSequenceEvent::PitchBend { channel, value },
                     })
-                } else if second_byte & 0b0011_0000 == 0b0011_0000 {
+                } else if event_type == 0x36 || event_type == 0x3b {
+                    let (remaining, value) = u8(remaining)?;
                     data = remaining;
-
-                    let value = (second_byte & 0b0000_1111) * 8;
 
                     result.push(Self {
                         duration,
-                        event: PCMAudioSequenceEvent::PitchBend { channel, value },
+                        event: PCMAudioSequenceEvent::Expression { channel, value },
                     })
-                } else if second_byte & 0b0011_0111 == 0b0011_0110 {
+                } else if event_type == 0x37 {
                     let (remaining, value) = u8(remaining)?;
                     data = remaining;
 
@@ -115,7 +139,7 @@ impl PCMAudioSequenceData {
                         duration,
                         event: PCMAudioSequenceEvent::Volume { channel, value },
                     })
-                } else if second_byte & 0b0011_1010 == 0b0011_1010 {
+                } else if event_type == 0x3a {
                     let (remaining, value) = u8(remaining)?;
                     data = remaining;
 
@@ -123,22 +147,12 @@ impl PCMAudioSequenceData {
                         duration,
                         event: PCMAudioSequenceEvent::Pan { channel, value },
                     })
-                } else if second_byte & 0b0011_1011 == 0b0011_1011 {
-                    let (remaining, value) = u8(remaining)?;
+                } else if event_type == 0x00 {
                     data = remaining;
 
                     result.push(Self {
                         duration,
-                        event: PCMAudioSequenceEvent::Expression { channel, value },
-                    })
-                } else if second_byte & 0b0011_0000 == 0b0000_0000 {
-                    data = remaining;
-
-                    let value = ((second_byte & 0b0000_1111) - 1) * 31;
-
-                    result.push(Self {
-                        duration,
-                        event: PCMAudioSequenceEvent::Expression { channel, value },
+                        event: PCMAudioSequenceEvent::Nop,
                     })
                 } else {
                     panic!("Invalid second byte")
@@ -155,6 +169,7 @@ pub enum PCMAudioTrackChunk<'a> {
     SetupData(&'a [u8]),
     SequenceData(Vec<PCMAudioSequenceData>),
     WaveData(u8, &'a [u8]),
+    Unknown(&'a [u8], &'a [u8]),
 }
 
 impl<'a> Parse<&'a [u8]> for PCMAudioTrackChunk<'a> {
@@ -165,12 +180,7 @@ impl<'a> Parse<&'a [u8]> for PCMAudioTrackChunk<'a> {
                 b"Atsu" => PCMAudioTrackChunk::SetupData(data),
                 b"Atsq" => PCMAudioTrackChunk::SequenceData(all_consuming(PCMAudioSequenceData::parse)(data)?.1),
                 &[b'A', b'w', b'a', x] => PCMAudioTrackChunk::WaveData(x, data),
-                _ => {
-                    return Err(nom::Err::Error::<nom::error::Error<&'a [u8]>>(nom::error_position!(
-                        data,
-                        nom::error::ErrorKind::Switch
-                    )))
-                }
+                _ => PCMAudioTrackChunk::Unknown(tag, data),
             })
         })(data)
     }
