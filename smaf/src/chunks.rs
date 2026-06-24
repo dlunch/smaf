@@ -21,7 +21,14 @@ pub fn parse_timebase(raw: u8) -> u8 {
 
 pub fn parse_variable_number(input: &[u8]) -> IResult<&[u8], u32> {
     let mut data = input;
-    let mut result = 0;
+    let (remaining, first) = u8(data)?;
+    data = remaining;
+
+    if first & 0b1000_0000 == 0 {
+        return Ok((data, (first & 0b0111_1111) as u32));
+    }
+
+    let mut result = (first & 0b0111_1111) as u32;
     loop {
         let (remaining, byte) = u8(data)?;
         data = remaining;
@@ -34,9 +41,20 @@ pub fn parse_variable_number(input: &[u8]) -> IResult<&[u8], u32> {
     Ok((data, result))
 }
 
+pub fn parse_handy_variable_number(input: &[u8]) -> IResult<&[u8], u32> {
+    let (remaining, first) = u8(input)?;
+    if first & 0b1000_0000 == 0 {
+        return Ok((remaining, first as u32));
+    }
+
+    let (remaining, second) = u8(remaining)?;
+    let result = ((((first & 0b0111_1111) as u32) + 1) << 7) | (second as u32);
+    Ok((remaining, result))
+}
+
 pub use self::{
     content_info::ContentsInfoChunk,
     optional_data::OptionalDataChunk,
     pcm_audio_track::{PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrack, PCMAudioTrackChunk},
-    score_track::{PCMDataChunk, ScoreTrack, ScoreTrackChunk, ScoreTrackSequenceEvent, SequenceData, WaveData},
+    score_track::{ChannelStatus, ChannelType, PCMDataChunk, ScoreTrack, ScoreTrackChunk, ScoreTrackSequenceEvent, SequenceData, WaveData},
 };
