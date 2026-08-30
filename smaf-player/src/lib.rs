@@ -911,9 +911,10 @@ fn parse_pcm_audio_track_events(track: &PCMAudioTrack) -> Vec<(usize, SmafEvent)
                     .iter()
                     .find_map(|x| {
                         if let PCMAudioTrackChunk::WaveData(x, y) = x
-                            && *x == wave_number {
-                                return Some(y);
-                            }
+                            && *x == wave_number
+                        {
+                            return Some(y);
+                        }
                         None
                     })
                     .unwrap();
