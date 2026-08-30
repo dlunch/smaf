@@ -1,18 +1,18 @@
 use alloc::{format, vec::Vec};
 
 use nom::{
+    IResult,
     bytes::complete::take,
     combinator::{all_consuming, complete, flat_map, map_res},
     multi::many0,
     number::complete::be_u32,
     sequence::tuple,
-    IResult,
 };
 use nom_derive::{NomBE, Parse};
 
 use crate::{
-    chunks::{ContentsInfoChunk, OptionalDataChunk, PCMAudioTrack, ScoreTrack, SequenceData},
     Result, SmafError,
+    chunks::{ContentsInfoChunk, OptionalDataChunk, PCMAudioTrack, ScoreTrack, SequenceData},
 };
 
 pub enum SmafChunk<'a> {

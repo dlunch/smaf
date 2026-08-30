@@ -3,7 +3,7 @@ mod optional_data;
 mod pcm_audio_track;
 mod score_track;
 
-use nom::{number::complete::u8, IResult};
+use nom::{IResult, number::complete::u8};
 
 pub fn parse_timebase(raw: u8) -> u8 {
     match raw {

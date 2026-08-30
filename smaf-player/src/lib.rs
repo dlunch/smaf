@@ -168,11 +168,7 @@ fn parse_sequence_events(
                 if note == 0 {
                     let pcm = pcm_chunks.iter().find_map(|pcm_chunk| {
                         let PCMDataChunk::WaveData(x, y) = pcm_chunk;
-                        if *x == channel + 1 {
-                            Some(y)
-                        } else {
-                            None
-                        }
+                        if *x == channel + 1 { Some(y) } else { None }
                     });
                     let Some(pcm) = pcm else {
                         continue;
@@ -957,7 +953,7 @@ fn parse_pcm_audio_track_events(track: &PCMAudioTrack) -> Vec<(usize, SmafEvent)
 mod tests {
     use alloc::vec;
 
-    use super::{parse_pcm_audio_track_events, parse_sequence_events, SmafEvent, ToneMap};
+    use super::{SmafEvent, ToneMap, parse_pcm_audio_track_events, parse_sequence_events};
     use smaf::{
         BaseBit, Channel, ChannelStatus, ChannelType, PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrack, PCMAudioTrackChunk, PcmWaveFormat,
         ScoreTrackSequenceEvent, SequenceData,
@@ -1016,9 +1012,11 @@ mod tests {
         tone_map.update_control(7, 7, 80);
 
         let setup = tone_map.emit_atmosphere_setup(0, 7, 0x62);
-        assert!(setup
-            .iter()
-            .any(|(_, event)| matches!(event, SmafEvent::MidiProgramChange { channel: 15, program: 99 })));
+        assert!(
+            setup
+                .iter()
+                .any(|(_, event)| matches!(event, SmafEvent::MidiProgramChange { channel: 15, program: 99 }))
+        );
         assert!(setup.iter().any(|(_, event)| matches!(
             event,
             SmafEvent::MidiControlChange {
@@ -1045,9 +1043,11 @@ mod tests {
         )));
 
         let notes = tone_map.emit_atmosphere_notes(100, 200, 7, 84, 64);
-        assert!(notes
-            .iter()
-            .any(|(_, event)| matches!(event, SmafEvent::MidiNoteOn { channel: 15, note: 84, .. })));
+        assert!(
+            notes
+                .iter()
+                .any(|(_, event)| matches!(event, SmafEvent::MidiNoteOn { channel: 15, note: 84, .. }))
+        );
     }
 
     #[test]
@@ -1076,9 +1076,11 @@ mod tests {
         ];
 
         let (events, _) = parse_sequence_events(&sequence, 1, 1, 0, false, &[], &mut tone_map);
-        assert!(events
-            .iter()
-            .any(|(_, event)| matches!(event, SmafEvent::MidiNoteOn { note: 62, velocity: 96, .. })));
+        assert!(
+            events
+                .iter()
+                .any(|(_, event)| matches!(event, SmafEvent::MidiNoteOn { note: 62, velocity: 96, .. }))
+        );
     }
 
     #[test]
@@ -1096,12 +1098,16 @@ mod tests {
         }];
 
         let (events, _) = parse_sequence_events(&sequence, 4, 4, 0, false, &[], &mut tone_map);
-        assert!(events
-            .iter()
-            .any(|(time, event)| *time == 20 && matches!(event, SmafEvent::MidiNoteOn { note: 60, .. })));
-        assert!(events
-            .iter()
-            .any(|(time, event)| *time == 28 && matches!(event, SmafEvent::MidiNoteOff { note: 60, .. })));
+        assert!(
+            events
+                .iter()
+                .any(|(time, event)| *time == 20 && matches!(event, SmafEvent::MidiNoteOn { note: 60, .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|(time, event)| *time == 28 && matches!(event, SmafEvent::MidiNoteOff { note: 60, .. }))
+        );
     }
 
     #[test]
@@ -1136,9 +1142,11 @@ mod tests {
         }];
 
         let (events, _) = parse_sequence_events(&first_sequence, 1, 1, 0, true, &[], &mut tone_map);
-        assert!(events
-            .iter()
-            .any(|(_, event)| matches!(event, SmafEvent::MidiProgramChange { channel: 0, program: 40 })));
+        assert!(
+            events
+                .iter()
+                .any(|(_, event)| matches!(event, SmafEvent::MidiProgramChange { channel: 0, program: 40 }))
+        );
 
         let second_track = [channel_status(ChannelType::Melody)];
         tone_map.init_track(smaf::FormatType::HandyPhoneStandard, &second_track, 4);
@@ -1148,9 +1156,11 @@ mod tests {
         }];
 
         let (events, _) = parse_sequence_events(&second_sequence, 1, 1, 4, true, &[], &mut tone_map);
-        assert!(events
-            .iter()
-            .any(|(_, event)| matches!(event, SmafEvent::MidiProgramChange { channel: 1, program: 41 })));
+        assert!(
+            events
+                .iter()
+                .any(|(_, event)| matches!(event, SmafEvent::MidiProgramChange { channel: 1, program: 41 }))
+        );
     }
 
     #[test]
@@ -1179,9 +1189,11 @@ mod tests {
         ];
 
         let (events, _) = parse_sequence_events(&sequence, 1, 1, 0, true, &[], &mut tone_map);
-        assert!(events
-            .iter()
-            .any(|(_, event)| matches!(event, SmafEvent::MidiProgramChange { channel: 9, program: 0 })));
+        assert!(
+            events
+                .iter()
+                .any(|(_, event)| matches!(event, SmafEvent::MidiProgramChange { channel: 9, program: 0 }))
+        );
         assert!(events.iter().any(|(_, event)| {
             matches!(
                 event,
@@ -1192,9 +1204,11 @@ mod tests {
                 }
             )
         }));
-        assert!(!events
-            .iter()
-            .any(|(_, event)| matches!(event, SmafEvent::MidiControlChange { channel: 9, control: 11, .. })));
+        assert!(
+            !events
+                .iter()
+                .any(|(_, event)| matches!(event, SmafEvent::MidiControlChange { channel: 9, control: 11, .. }))
+        );
     }
 
     #[test]
@@ -1222,9 +1236,11 @@ mod tests {
                 value: 72
             }
         )));
-        assert!(!events
-            .iter()
-            .any(|(_, event)| matches!(event, SmafEvent::MidiControlChange { channel: 0, control: 11, .. })));
+        assert!(
+            !events
+                .iter()
+                .any(|(_, event)| matches!(event, SmafEvent::MidiControlChange { channel: 0, control: 11, .. }))
+        );
     }
 
     #[test]

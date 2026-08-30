@@ -23,8 +23,8 @@ pub type Result<T> = result::Result<T, SmafError>;
 
 pub use self::{
     chunks::{
-        parse_handy_variable_number, parse_variable_number, ChannelStatus, ChannelType, PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrack,
-        PCMAudioTrackChunk, PCMDataChunk, ScoreTrack, ScoreTrackChunk, ScoreTrackSequenceEvent, SequenceData, WaveData,
+        ChannelStatus, ChannelType, PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrack, PCMAudioTrackChunk, PCMDataChunk, ScoreTrack,
+        ScoreTrackChunk, ScoreTrackSequenceEvent, SequenceData, WaveData, parse_handy_variable_number, parse_variable_number,
     },
     constants::{BaseBit, Channel, FormatType, PcmWaveFormat, StreamWaveFormat},
     smaf::{Smaf, SmafChunk},

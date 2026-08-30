@@ -1,11 +1,11 @@
 use alloc::vec::Vec;
 use nom::{
+    IResult,
     bytes::complete::take,
     combinator::{all_consuming, complete, flat_map, map_res},
     multi::many0,
     number::complete::{be_u16, be_u32, u8},
     sequence::tuple,
-    IResult,
 };
 use nom_derive::Parse;
 

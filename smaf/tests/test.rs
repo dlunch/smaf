@@ -1,6 +1,6 @@
 use smaf::{
-    parse_handy_variable_number, parse_variable_number, BaseBit, Channel, FormatType, PCMAudioSequenceData, PCMAudioSequenceEvent,
-    PCMAudioTrackChunk, PCMDataChunk, PcmWaveFormat, ScoreTrackChunk, ScoreTrackSequenceEvent, SequenceData, Smaf, SmafChunk, StreamWaveFormat,
+    BaseBit, Channel, FormatType, PCMAudioSequenceData, PCMAudioSequenceEvent, PCMAudioTrackChunk, PCMDataChunk, PcmWaveFormat, ScoreTrackChunk,
+    ScoreTrackSequenceEvent, SequenceData, Smaf, SmafChunk, StreamWaveFormat, parse_handy_variable_number, parse_variable_number,
 };
 
 #[test]
@@ -179,9 +179,11 @@ fn test_hps_short_expression() {
     let seq = [0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00];
     let (_, events) = SequenceData::parse_handy(&seq).unwrap();
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.event, ScoreTrackSequenceEvent::Expression { channel: 0, value: 0x37 })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.event, ScoreTrackSequenceEvent::Expression { channel: 0, value: 0x37 }))
+    );
 }
 
 #[test]
@@ -234,9 +236,11 @@ fn test_pcm_short_expression() {
     let seq = [0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00];
     let (_, events) = PCMAudioSequenceData::parse(&seq).unwrap();
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.event, PCMAudioSequenceEvent::Expression { channel: 0, value: 0x37 })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.event, PCMAudioSequenceEvent::Expression { channel: 0, value: 0x37 }))
+    );
 }
 
 #[test]
@@ -246,7 +250,9 @@ fn test_pcm_short_pitch_bend() {
     let seq = [0x00, 0x00, 0x13, 0x00, 0x00, 0x00, 0x00];
     let (_, events) = PCMAudioSequenceData::parse(&seq).unwrap();
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.event, PCMAudioSequenceEvent::PitchBend { channel: 0, value: 0x18 })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.event, PCMAudioSequenceEvent::PitchBend { channel: 0, value: 0x18 }))
+    );
 }

@@ -2,10 +2,10 @@ use core::time::Duration;
 use std::{env::args, fs};
 
 use midir::{MidiOutput, MidiOutputConnection};
-use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
+use rodio::{OutputStream, Sink, buffer::SamplesBuffer};
 use tokio::time::sleep;
 
-use smaf_player::{parse_smaf, SmafEvent};
+use smaf_player::{SmafEvent, parse_smaf};
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn main() {
