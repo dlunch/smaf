@@ -1,7 +1,9 @@
 [package]
 name = "smaf"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+description = "A parser for Yamaha SMAF audio files"
+repository.workspace = true
 
 [dependencies]
 anyhow = { version = "^1.0" }

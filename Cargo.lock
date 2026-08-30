@@ -728,19 +728,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "smaf_cli"
+name = "smaf-cli"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "midir",
  "rodio",
  "smaf",
- "smaf_player",
+ "smaf-player",
  "tokio",
 ]
 
 [[package]]
-name = "smaf_player"
+name = "smaf-player"
 version = "0.1.0"
 dependencies = [
  "smaf",

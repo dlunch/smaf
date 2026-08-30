@@ -12,10 +12,10 @@ pub async fn main() {
     let file = args().nth(1).expect("No file given");
     let data = fs::read(file).expect("Failed to read file");
 
-    let midi_out = MidiOutput::new("smaf_cli").unwrap();
+    let midi_out = MidiOutput::new("smaf-cli").unwrap();
     let midi_ports = midi_out.ports();
     let out_port = midi_ports.last().unwrap();
-    let mut midi_out = midi_out.connect(out_port, "smaf_cli").unwrap();
+    let mut midi_out = midi_out.connect(out_port, "smaf-cli").unwrap();
 
     let (_output_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();

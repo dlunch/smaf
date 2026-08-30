@@ -1,7 +1,9 @@
 [package]
-name = "smaf_cli"
-version = "0.1.0"
-edition = "2021"
+name = "smaf-cli"
+version.workspace = true
+edition.workspace = true
+description = "A command-line player for Yamaha SMAF audio files"
+repository.workspace = true
 
 [dependencies]
 async-trait = { version = "^0.1", default-features = false }
@@ -10,4 +12,4 @@ rodio = { version = "^0.20", default-features = false }
 tokio = { version = "^1.52", features = ["rt", "macros", "time"], default-features = false }
 
 smaf = { path = "../smaf" }
-smaf_player = { path = "../smaf_player" }
+smaf-player = { path = "../smaf-player" }
