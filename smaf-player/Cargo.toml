@@ -6,4 +6,4 @@ description = "Playback support for Yamaha SMAF audio files"
 repository.workspace = true
 
 [dependencies]
-smaf = { path = "../smaf" }
+smaf.workspace = true

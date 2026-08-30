@@ -6,3 +6,7 @@ members = ["smaf", "smaf-player", "smaf-cli"]
 version = "0.1.1"
 edition = "2021"
 repository = "https://github.com/dlunch/smaf"
+
+[workspace.dependencies]
+smaf = { version = "0.1.1", path = "smaf" }
+smaf-player = { version = "0.1.1", path = "smaf-player" }
