@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 description = "Playback support for Yamaha SMAF audio files"
 repository.workspace = true
+license.workspace = true
 
 [dependencies]
 smaf.workspace = true

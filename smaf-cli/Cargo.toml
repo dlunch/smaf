@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 description = "A command-line player for Yamaha SMAF audio files"
 repository.workspace = true
+license.workspace = true
 
 [dependencies]
 async-trait = { version = "^0.1", default-features = false }
