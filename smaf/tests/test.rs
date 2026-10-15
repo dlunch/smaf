@@ -114,12 +114,25 @@ fn test_unknown_top_level_chunk_is_skipped() -> anyhow::Result<()> {
     data.extend_from_slice(&4u32.to_be_bytes());
     data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
     // CRC
-    data.extend_from_slice(&0u16.to_be_bytes());
+    data.extend_from_slice(&0x1234u16.to_be_bytes());
 
     let file = Smaf::parse(&data)?;
 
     assert!(file.chunks.iter().any(|c| matches!(c, SmafChunk::ContentsInfo(_))));
     assert!(file.chunks.iter().any(|c| matches!(c, SmafChunk::Unknown(b"XXXX", _))));
+    assert_eq!(file.crc, 0x1234);
+
+    for padding in [6, 14, 64] {
+        let mut buffered = data.clone();
+        buffered.resize(data.len() + padding, 0);
+        let file = Smaf::parse(&buffered)?;
+        assert_eq!(file.chunks.len(), 2);
+        assert_eq!(file.crc, 0x1234);
+    }
+
+    assert!(Smaf::parse(&data[..data.len() - 1]).is_err());
+    data[4..8].copy_from_slice(&1u32.to_be_bytes());
+    assert!(Smaf::parse(&data).is_err());
 
     Ok(())
 }
