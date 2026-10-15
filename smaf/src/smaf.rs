@@ -2,13 +2,13 @@ use alloc::{format, vec::Vec};
 
 use nom::{
     IResult,
-    bytes::complete::take,
+    bytes::complete::{tag, take},
     combinator::{all_consuming, complete, flat_map, map_res},
     multi::many0,
-    number::complete::be_u32,
+    number::complete::{be_u16, be_u32},
     sequence::tuple,
 };
-use nom_derive::{NomBE, Parse};
+use nom_derive::Parse;
 
 use crate::{
     Result, SmafError,
@@ -39,15 +39,21 @@ impl<'a> Parse<&'a [u8]> for SmafChunk<'a> {
     }
 }
 
-#[derive(NomBE)]
-#[nom(Complete)]
 pub struct Smaf<'a> {
-    #[nom(Tag(b"MMMD"))]
     pub magic: &'a [u8],
     pub length: u32,
-    #[nom(Parse = "many0(complete(SmafChunk::parse))")]
     pub chunks: Vec<SmafChunk<'a>>,
     pub crc: u16,
+}
+
+impl<'a> Parse<&'a [u8]> for Smaf<'a> {
+    fn parse(data: &'a [u8]) -> IResult<&'a [u8], Self> {
+        let (data, (magic, length)) = tuple((tag(b"MMMD"), be_u32))(data)?;
+        let (remaining, body) = take(length)(data)?;
+        let (_, (chunks, crc)) = all_consuming(tuple((many0(complete(SmafChunk::parse)), be_u16)))(body)?;
+
+        Ok((remaining, Self { magic, length, chunks, crc }))
+    }
 }
 
 impl<'a> Smaf<'a> {
