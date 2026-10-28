@@ -1,5 +1,4 @@
 // Decode Yamaha ADPCM used by SMAF.
-// adapted to rust from https://github.com/superctr/adpcm/blob/master/ymb_codec.c (Unlicense)
 
 use alloc::vec::Vec;
 

@@ -1,14 +1,12 @@
 use alloc::vec::Vec;
 
 use nom::{
-    IResult,
+    IResult, Parser,
     bytes::complete::take,
     combinator::{all_consuming, complete, flat_map, map, map_res, rest},
     multi::many0,
     number::complete::{be_u16, be_u32, u8},
-    sequence::tuple,
 };
-use nom_derive::{NomBE, Parse};
 
 use crate::{
     chunks::{parse_handy_variable_number, parse_timebase, parse_variable_number},
@@ -26,9 +24,9 @@ pub struct WaveData<'a> {
     pub wave_data: &'a [u8],
 }
 
-impl<'a> Parse<&'a [u8]> for WaveData<'a> {
+impl<'a> WaveData<'a> {
     fn parse(data: &'a [u8]) -> IResult<&'a [u8], Self> {
-        map_res(tuple((u8, be_u16, rest)), |(wave_type, sampling_freq, wave_data)| {
+        map_res((u8, be_u16, rest), |(wave_type, sampling_freq, wave_data)| {
             let channel = Channel::from((wave_type & 0b10000000) >> 7);
             let format = StreamWaveFormat::from((wave_type & 0b01110000) >> 4);
             let base_bit = BaseBit::from(wave_type & 0b00001111);
@@ -40,7 +38,8 @@ impl<'a> Parse<&'a [u8]> for WaveData<'a> {
                 sampling_freq,
                 wave_data,
             })
-        })(data)
+        })
+        .parse(data)
     }
 }
 
@@ -48,14 +47,15 @@ pub enum PCMDataChunk<'a> {
     WaveData(u8, WaveData<'a>),
 }
 
-impl<'a> Parse<&'a [u8]> for PCMDataChunk<'a> {
+impl<'a> PCMDataChunk<'a> {
     fn parse(data: &'a [u8]) -> IResult<&'a [u8], Self> {
-        map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
+        map_res((take(4usize), flat_map(be_u32, take)), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
-                &[b'M', b'w', b'a', x] => Self::WaveData(x, all_consuming(WaveData::parse)(data)?.1),
-                _ => return Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Switch))),
+                &[b'M', b'w', b'a', x] => Self::WaveData(x, all_consuming(WaveData::parse).parse(data)?.1),
+                _ => return Err(nom::Err::Error(nom::error::Error::new(data, nom::error::ErrorKind::Switch))),
             })
-        })(data)
+        })
+        .parse(data)
     }
 }
 
@@ -389,12 +389,12 @@ impl SequenceData {
 #[allow(clippy::let_and_return)]
 fn parse_mobile_compressed(data: &[u8]) -> IResult<&[u8], Vec<SequenceData>> {
     let (remaining, decoded_len) = be_u32(data)?;
-    let decoded =
-        huffman_decode(decoded_len as usize, remaining).ok_or_else(|| nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Verify)))?;
+    let decoded = huffman_decode(decoded_len as usize, remaining)
+        .ok_or_else(|| nom::Err::Error(nom::error::Error::new(data, nom::error::ErrorKind::Verify)))?;
     let empty: &[u8] = &[];
-    let parsed = match all_consuming(SequenceData::parse_mobile)(&decoded) {
+    let parsed = match all_consuming(SequenceData::parse_mobile).parse(&decoded) {
         Ok((_, events)) => Ok((empty, events)),
-        Err(_) => Err(nom::Err::Error(nom::error_position!(data, nom::error::ErrorKind::Verify))),
+        Err(_) => Err(nom::Err::Error(nom::error::Error::new(data, nom::error::ErrorKind::Verify))),
     };
     parsed
 }
@@ -491,7 +491,7 @@ pub enum ScoreTrackChunk<'a> {
 
 impl<'a> ScoreTrackChunk<'a> {
     fn parse(format_type: FormatType, data: &'a [u8]) -> IResult<&'a [u8], Self> {
-        map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
+        map_res((take(4usize), flat_map(be_u32, take)), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
                 b"Mtsu" => ScoreTrackChunk::SetupData(data),
                 b"Mtsq" => {
@@ -500,14 +500,15 @@ impl<'a> ScoreTrackChunk<'a> {
                         FormatType::MobileStandardCompress => parse_mobile_compressed,
                         FormatType::HandyPhoneStandard => SequenceData::parse_handy,
                     };
-                    ScoreTrackChunk::SequenceData(all_consuming(parser)(data)?.1)
+                    ScoreTrackChunk::SequenceData(all_consuming(parser).parse(data)?.1)
                 }
-                b"SEQU" => ScoreTrackChunk::SequenceData(all_consuming(SequenceData::parse_softbank)(data)?.1),
-                b"Mtsp" => ScoreTrackChunk::PCMData(all_consuming(many0(complete(PCMDataChunk::parse)))(data)?.1),
+                b"SEQU" => ScoreTrackChunk::SequenceData(all_consuming(SequenceData::parse_softbank).parse(data)?.1),
+                b"Mtsp" => ScoreTrackChunk::PCMData(all_consuming(many0(complete(PCMDataChunk::parse))).parse(data)?.1),
                 b"MspI" => ScoreTrackChunk::SeekAndPhraseInfo(data),
                 _ => ScoreTrackChunk::Unknown(tag, data),
             })
-        })(data)
+        })
+        .parse(data)
     }
 }
 
@@ -578,27 +579,46 @@ impl ChannelStatus {
     }
 }
 
-#[derive(NomBE)]
-#[nom(Complete)]
-#[nom(Exact)]
 pub struct ScoreTrack<'a> {
     pub format_type: FormatType,
     pub sequence_type: u8,
-    #[nom(Parse = "map(u8, parse_timebase)")]
     pub timebase_d: u8,
-    #[nom(Parse = "map(u8, parse_timebase)")]
     pub timebase_g: u8,
-    #[nom(Parse = "|x| parse_channel_status(format_type, x)")]
     pub channel_status: Vec<ChannelStatus>,
-    #[nom(Parse = "|x| many0(complete(|y| ScoreTrackChunk::parse(format_type, y)))(x)")]
     pub chunks: Vec<ScoreTrackChunk<'a>>,
+}
+
+impl<'a> ScoreTrack<'a> {
+    pub(crate) fn parse(input: &'a [u8]) -> IResult<&'a [u8], Self> {
+        let (data, format_type) = u8(input)?;
+        let format_type = match format_type {
+            0 => FormatType::HandyPhoneStandard,
+            1 => FormatType::MobileStandardCompress,
+            2 => FormatType::MobileStandardNoCompress,
+            _ => return Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Switch))),
+        };
+        let (data, (sequence_type, timebase_d, timebase_g)) = (u8, map(u8, parse_timebase), map(u8, parse_timebase)).parse(data)?;
+        let (data, channel_status) = parse_channel_status(format_type, data)?;
+        let (remaining, chunks) = all_consuming(many0(complete(|data| ScoreTrackChunk::parse(format_type, data)))).parse(data)?;
+        Ok((
+            remaining,
+            Self {
+                format_type,
+                sequence_type,
+                timebase_d,
+                timebase_g,
+                channel_status,
+                chunks,
+            },
+        ))
+    }
 }
 
 fn parse_channel_status(format_type: FormatType, data: &[u8]) -> IResult<&[u8], Vec<ChannelStatus>> {
     Ok(match format_type {
         FormatType::MobileStandardCompress | FormatType::MobileStandardNoCompress => {
-            map(take(16usize), |x: &[u8]| x.iter().map(|&x| ChannelStatus::parse_mobile(x)).collect())(data)?
+            map(take(16usize), |x: &[u8]| x.iter().map(|&x| ChannelStatus::parse_mobile(x)).collect()).parse(data)?
         }
-        FormatType::HandyPhoneStandard => map(be_u16, ChannelStatus::parse_handy)(data)?,
+        FormatType::HandyPhoneStandard => map(be_u16, ChannelStatus::parse_handy).parse(data)?,
     })
 }

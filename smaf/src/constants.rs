@@ -1,5 +1,3 @@
-use nom_derive::NomBE;
-
 #[repr(u8)]
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum Channel {
@@ -79,7 +77,7 @@ impl From<u8> for BaseBit {
 }
 
 #[repr(u8)]
-#[derive(NomBE, Eq, PartialEq, Copy, Clone, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum FormatType {
     HandyPhoneStandard = 0,
     MobileStandardCompress = 1,

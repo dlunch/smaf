@@ -1,13 +1,11 @@
 use alloc::vec::Vec;
 use nom::{
-    IResult,
+    IResult, Parser,
     bytes::complete::take,
     combinator::{all_consuming, complete, flat_map, map_res},
     multi::many0,
     number::complete::{be_u16, be_u32, u8},
-    sequence::tuple,
 };
-use nom_derive::Parse;
 
 use crate::{
     chunks::{parse_timebase, parse_variable_number},
@@ -172,17 +170,18 @@ pub enum PCMAudioTrackChunk<'a> {
     Unknown(&'a [u8], &'a [u8]),
 }
 
-impl<'a> Parse<&'a [u8]> for PCMAudioTrackChunk<'a> {
+impl<'a> PCMAudioTrackChunk<'a> {
     fn parse(data: &'a [u8]) -> IResult<&'a [u8], Self> {
-        map_res(tuple((take(4usize), flat_map(be_u32, take))), |(tag, data): (&[u8], &[u8])| {
+        map_res((take(4usize), flat_map(be_u32, take)), |(tag, data): (&[u8], &[u8])| {
             Ok::<_, nom::Err<_>>(match tag {
                 b"AspI" => PCMAudioTrackChunk::SeekAndPhraseInfo(data),
                 b"Atsu" => PCMAudioTrackChunk::SetupData(data),
-                b"Atsq" => PCMAudioTrackChunk::SequenceData(all_consuming(PCMAudioSequenceData::parse)(data)?.1),
+                b"Atsq" => PCMAudioTrackChunk::SequenceData(all_consuming(PCMAudioSequenceData::parse).parse(data)?.1),
                 &[b'A', b'w', b'a', x] => PCMAudioTrackChunk::WaveData(x, data),
                 _ => PCMAudioTrackChunk::Unknown(tag, data),
             })
-        })(data)
+        })
+        .parse(data)
     }
 }
 
@@ -199,10 +198,10 @@ pub struct PCMAudioTrack<'a> {
     pub chunks: Vec<PCMAudioTrackChunk<'a>>,
 }
 
-impl<'a> Parse<&'a [u8]> for PCMAudioTrack<'a> {
-    fn parse(data: &'a [u8]) -> IResult<&'a [u8], Self> {
+impl<'a> PCMAudioTrack<'a> {
+    pub(crate) fn parse(data: &'a [u8]) -> IResult<&'a [u8], Self> {
         map_res(
-            tuple((u8, u8, be_u16, u8, u8, many0(complete(PCMAudioTrackChunk::parse)))),
+            (u8, u8, be_u16, u8, u8, many0(complete(PCMAudioTrackChunk::parse))),
             |(format_type, sequence_type, wave_type, timebase_d, timebase_g, chunks)| {
                 let channel = Channel::from(((wave_type & 0b1000_0000_0000_0000) >> 15) as u8);
                 let format = PcmWaveFormat::from(((wave_type & 0b0111_0000_0000_0000) >> 12) as u8);
@@ -233,6 +232,7 @@ impl<'a> Parse<&'a [u8]> for PCMAudioTrack<'a> {
                     chunks,
                 })
             },
-        )(data)
+        )
+        .parse(data)
     }
 }

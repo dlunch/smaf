@@ -1,8 +1,8 @@
 use core::time::Duration;
-use std::{env::args, fs};
+use std::{env::args, fs, num::NonZero};
 
 use midir::{MidiOutput, MidiOutputConnection};
-use rodio::{OutputStream, Sink, buffer::SamplesBuffer};
+use rodio::{DeviceSinkBuilder, Player, buffer::SamplesBuffer, conversions::SampleTypeConverter};
 use tokio::time::sleep;
 
 use smaf_player::{SmafEvent, parse_smaf};
@@ -17,17 +17,17 @@ pub async fn main() {
     let out_port = midi_ports.last().unwrap();
     let mut midi_out = midi_out.connect(out_port, "smaf-cli").unwrap();
 
-    let (_output_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let sink = Sink::try_new(&stream_handle).unwrap();
+    let output = DeviceSinkBuilder::open_default_sink().unwrap();
+    let player = Player::connect_new(output.mixer());
 
     let events = parse_smaf(&data);
 
     loop {
-        play_events(&events, &mut midi_out, &sink).await;
+        play_events(&events, &mut midi_out, &player).await;
     }
 }
 
-async fn play_events(events: &[(usize, SmafEvent)], midi_out: &mut MidiOutputConnection, sink: &Sink) {
+async fn play_events(events: &[(usize, SmafEvent)], midi_out: &mut MidiOutputConnection, player: &Player) {
     let mut now = 0;
     for (time, event) in events {
         sleep(Duration::from_millis(time.saturating_sub(now) as u64)).await;
@@ -38,8 +38,9 @@ async fn play_events(events: &[(usize, SmafEvent)], midi_out: &mut MidiOutputCon
                 sampling_rate,
                 data,
             } => {
-                let buffer = SamplesBuffer::new(*channel as _, *sampling_rate as _, data.clone());
-                sink.append(buffer);
+                let samples = SampleTypeConverter::<_, f32>::new(data.iter().copied()).collect::<Vec<_>>();
+                let buffer = SamplesBuffer::new(NonZero::new(*channel as u16).unwrap(), NonZero::new(*sampling_rate).unwrap(), samples);
+                player.append(buffer);
             }
             SmafEvent::MidiNoteOn { channel, note, velocity } => {
                 midi_out.send(&[0x90 | *channel, *note, *velocity]).unwrap();

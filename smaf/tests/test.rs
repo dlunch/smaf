@@ -9,8 +9,24 @@ fn test_bell_load() -> anyhow::Result<()> {
     let file = Smaf::parse(data)?;
 
     assert_eq!(file.chunks.len(), 3);
-    assert!(matches!(file.chunks[0], SmafChunk::ContentsInfo(_)));
-    assert!(matches!(file.chunks[1], SmafChunk::OptionalData(_)));
+    let SmafChunk::ContentsInfo(info) = &file.chunks[0] else {
+        panic!("Expected ContentsInfo chunk");
+    };
+    assert_eq!(
+        [
+            info.content_class,
+            info.content_type,
+            info.content_code_type,
+            info.copy_status,
+            info.copy_counts
+        ],
+        [0x00, 0x34, 0x01, 0xf8, 0x00]
+    );
+    assert!(info.option.is_empty());
+    let SmafChunk::OptionalData(optional) = &file.chunks[1] else {
+        panic!("Expected OptionalData chunk");
+    };
+    assert_eq!(optional.raw, &data[29..82]);
     assert!(matches!(file.chunks[2], SmafChunk::ScoreTrack(6, _)));
 
     if let SmafChunk::ScoreTrack(_, x) = &file.chunks[2] {
@@ -41,6 +57,36 @@ fn test_bell_load() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[test]
+fn test_score_track_header_formats() {
+    for format in 0..=3 {
+        let mut track = vec![format, 0, 0x11, 2];
+        track.resize(if format == 0 { 6 } else { 20 }, 0);
+        let mut data = b"MMMD".to_vec();
+        data.extend_from_slice(&(track.len() as u32 + 10).to_be_bytes());
+        data.extend_from_slice(b"MTR\x00");
+        data.extend_from_slice(&(track.len() as u32).to_be_bytes());
+        data.extend_from_slice(&track);
+        data.extend_from_slice(&[0, 0]);
+
+        if format == 3 {
+            assert!(Smaf::parse(&data).is_err());
+            continue;
+        }
+
+        let file = Smaf::parse(&data).unwrap();
+        let SmafChunk::ScoreTrack(0, track) = &file.chunks[0] else {
+            panic!("Expected ScoreTrack chunk");
+        };
+        assert_eq!(track.format_type as u8, format);
+        assert_eq!(track.sequence_type, 0);
+        assert_eq!(track.timebase_d, 20);
+        assert_eq!(track.timebase_g, 4);
+        assert_eq!(track.channel_status.len(), if format == 0 { 4 } else { 16 });
+        assert!(track.chunks.is_empty());
+    }
 }
 
 #[test]
