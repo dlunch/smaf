@@ -1111,7 +1111,7 @@ mod tests {
     }
 
     #[test]
-    fn applies_pcm_sequence_duration_before_event() {
+    fn decodes_pcm_wave_at_sequence_time() {
         let track = PCMAudioTrack {
             format_type: 0,
             sequence_type: 0,
@@ -1121,13 +1121,45 @@ mod tests {
             base_bit: BaseBit::Bit4,
             timebase_d: 4,
             timebase_g: 4,
-            chunks: vec![PCMAudioTrackChunk::SequenceData(vec![PCMAudioSequenceData {
-                duration: 5,
-                event: PCMAudioSequenceEvent::Nop,
-            }])],
+            chunks: vec![
+                PCMAudioTrackChunk::SequenceData(vec![PCMAudioSequenceData {
+                    duration: 5,
+                    event: PCMAudioSequenceEvent::WaveMessage {
+                        channel: 0,
+                        wave_number: 1,
+                        gate_time: 2,
+                    },
+                }]),
+                PCMAudioTrackChunk::WaveData(
+                    1,
+                    &[
+                        0x21, 0x77, 0x10, 0x32, 0x54, 0x76, 0x98, 0xba, 0xdc, 0xfe, 0x77, 0x77, 0x77, 0xff, 0xff, 0x80,
+                    ],
+                ),
+            ],
         };
 
         let events = parse_pcm_audio_track_events(&track);
+        let (
+            time,
+            SmafEvent::Wave {
+                channel,
+                sampling_rate,
+                data,
+            },
+        ) = &events[0]
+        else {
+            panic!("Expected a decoded PCM wave");
+        };
+        assert_eq!((*time, *channel, *sampling_rate), (20, 1, 8000));
+        // Reference samples from FFmpeg 9.0.2's ADPCM_YAMAHA decoder.
+        assert_eq!(
+            data.as_slice(),
+            &[
+                47, 126, 364, 934, 1025, 1270, 1636, 2097, 2629, 3408, 4878, 8271, 7729, 6267, 4078, 1325, -1855, -6516, -15317, -32768, 13312,
+                32767, 32767, 32767, 32767, 32767, -13313, -32768, -32768, -32768, -29696, -32456,
+            ]
+        );
         assert!(events.iter().any(|(time, event)| *time == 20 && matches!(event, SmafEvent::End)));
     }
 
